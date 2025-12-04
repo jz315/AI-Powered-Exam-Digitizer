@@ -1,0 +1,108 @@
+% 使用国内主流的 exam-zh 试卷类
+\documentclass{exam-zh}
+
+% --- 试卷宏包配置 ---
+\examsetup{question/show-answer = true}
+
+% 引入 enumitem 以便自定义层级序号 (1) -> (i) -> (a)
+\usepackage{enumitem}
+
+\begin{document}
+
+% --- 定义递归渲染宏 (Macro) ---
+% 这里的逻辑是：如果有 sub_questions，就生成 enumerate 环境，并递归调用
+((* macro render_sub_questions(sub_list, level=1) *))
+    % 根据层级设定不同的标签样式
+    % 第一层用 (1), (2); 第二层用 (i), (ii); 第三层用 (a), (b)
+    ((* if level == 1 *))
+    \begin{enumerate}[label=(\arabic*)]
+    ((* elif level == 2 *))
+    \begin{enumerate}[label=(\roman*)]
+    ((* else *))
+    \begin{enumerate}[label=(\alph*)]
+    ((* endif *))
+
+    ((* for sub in sub_list *))
+        \item (( sub.content ))
+        % 递归检查：如果当前小问还有子小问，递归调用宏，层级+1
+        ((* if sub.sub_questions *))
+            (( render_sub_questions(sub.sub_questions, level + 1) ))
+        ((* endif *))
+    ((* endfor *))
+
+    \end{enumerate}
+((* endmacro *))
+% -----------------------------
+
+% --- 试卷表头 ---
+\title{ (( meta.title )) }
+\subject{ (( meta.subject )) }
+\maketitle
+
+
+% --- 循环遍历所有大题 ---
+((* for section in sections *))
+
+\section*{ (( section.title )) }
+
+    % === 类型1：选择题 (单选 & 多选) ===
+    ((* if section.type == 'single_choice' or section.type == 'multiple_choice' *))
+        ((* for q in section.questions *))
+        \begin{question}
+            (( q.content )) \paren[]
+
+             % TikZ 图形渲染
+            ((* if q.figure and q.figure.type == 'tikz' *))
+            \begin{center}
+                (( q.figure.code ))
+            \end{center}
+            ((* endif *))
+
+            \begin{choices}
+                ((* for opt in q.options *))
+                \item (( opt ))
+                ((* endfor *))
+            \end{choices}
+        \end{question}
+        ((* endfor *))
+
+    % === 类型2：填空题 ===
+    ((* elif section.type == 'fill' *))
+        ((* for q in section.questions *))
+        \begin{question}
+            ((* if q.figure and q.figure.type == 'tikz' *))
+            \begin{center}
+                (( q.figure.code ))
+            \end{center}
+            ((* endif *))
+            (( q.content ))
+        \end{question}
+        ((* endfor *))
+
+    % === 类型3：解答题 (重点修改部分) ===
+    ((* elif section.type == 'problem' *))
+        ((* for q in section.questions *))
+        \begin{problem}[points = (( q.score | default(10) )) ]
+            (( q.content ))
+
+            ((* if q.figure and q.figure.type == 'tikz' *))
+            \begin{center}
+                (( q.figure.code ))
+            \end{center}
+            ((* endif *))
+
+            % 调用上面定义的递归宏
+            ((* if q.sub_questions *))
+                (( render_sub_questions(q.sub_questions, 1) ))
+            ((* endif *))
+
+            % 预留空白供作答
+            \vspace{8cm} 
+        \end{problem}
+        ((* endfor *))
+
+    ((* endif *))
+
+((* endfor *))
+
+\end{document}
