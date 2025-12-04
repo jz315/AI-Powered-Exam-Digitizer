@@ -1,0 +1,228 @@
+{
+  "meta": {
+    "title": "新高考教学教研联盟 2026 届高三年级 12 月联考",
+    "subject": "数学"
+  },
+  "sections": [
+    {
+      "type": "single_choice",
+      "title": "一、选择题",
+      "questions": [
+        {
+          "id": 1,
+          "content": "若集合 $A=\\{x|x>2\\}, B=\\{x||x-2|<3\\}$，则 $A\\cap B=$",
+          "options": [
+            "$(2,5)$",
+            "$(-1,5)$",
+            "$(-1,+\\infty)$",
+            "$(2,+\\infty)$"
+          ]
+        },
+        {
+          "id": 2,
+          "content": "$\\frac{2+i}{1-i}$ (i为虚数单位)的虚部为",
+          "options": [
+            "$\\frac{3}{2}i$",
+            "$-\\frac{3}{2}i$",
+            "$\\frac{3}{2}$",
+            "$-\\frac{3}{2}$"
+          ]
+        },
+        {
+          "id": 3,
+          "content": "若角 $\\theta$ 的终边过点 $P(-1,-2)$，则 $\\tan\\left(\\theta+\\frac{\\pi}{4}\\right)=$",
+          "options": [
+            "$-\\frac{1}{3}$",
+            "$-3$",
+            "$\\frac{1}{3}$",
+            "$3$"
+          ]
+        },
+        {
+          "id": 4,
+          "content": "$(x^2-x-2y)^5$ 的展开式中，$x^5 y^2$ 的系数为",
+          "options": [
+            "$-120$",
+            "$-60$",
+            "$40$",
+            "$80$"
+          ]
+        },
+        {
+          "id": 5,
+          "content": "已知向量 $\\boldsymbol{a}$ 与 $\\boldsymbol{a}-\\boldsymbol{b}$ 的夹角为 $\\frac{2\\pi}{3}$，$|\\boldsymbol{a}|=1, |\\boldsymbol{a}-\\boldsymbol{b}|=2$，则 $\\boldsymbol{a} \\cdot \\boldsymbol{b}=$",
+          "options": [
+            "$-2$",
+            "$0$",
+            "$\\sqrt{3}$",
+            "$2$"
+          ]
+        },
+        {
+          "id": 6,
+          "content": "晋祠圣母殿是现存宋代建筑艺术的杰出代表，图 1 是该建筑的剖面画图. 圣母殿以其独特的木构技术、历史价值与艺术成就闻名，被誉为研究中国宋代建筑的“活标本”. 现使用图 2 简单模拟圣母殿的屋顶结构，其中四边形 $ABCD$ 为矩形，$AB=20\\text{ m}$，$AE, DE, BF, CF$ 为四段全等的圆弧，其对应的圆半径为 $6\\text{ m}$，圆心角为 $\\frac{\\pi}{3}$. 已知区域 $ABFE$ 和 $DCFE$ 是被瓦片覆盖的区域，则该模型中瓦片覆盖区域的总面积为",
+          "options": [
+            "$40\\pi \\text{ m}^2$",
+            "$80\\pi \\text{ m}^2$",
+            "$\\frac{100\\pi}{3} \\text{ m}^2$",
+            "$\\frac{200\\pi}{3} \\text{ m}^2$"
+          ]
+        },
+        {
+          "id": 7,
+          "content": "已知双曲线 $C_1, C_2$ 有相同的渐近线，焦点分别在 $x$ 轴、$y$ 轴上，离心率分别为 $e_1, e_2$，则 $e_1+e_2$ 的最小值为",
+          "options": [
+            "$4$",
+            "$2\\sqrt{3}$",
+            "$3$",
+            "$2\\sqrt{2}$"
+          ]
+        },
+        {
+          "id": 8,
+          "content": "若 $\\forall \\theta \\in \\mathbf{R}, \\exists x \\in \\left[\\frac{\\pi}{3}+\\theta, m+\\theta\\right]$，使得 $\\sin x \\leqslant \\frac{\\sqrt{3}}{2}$，则 $m$ 的最小值为",
+          "options": [
+            "$\\frac{2\\pi}{3}$",
+            "$\\frac{5\\pi}{6}$",
+            "$\\frac{7\\pi}{6}$",
+            "$\\frac{4\\pi}{3}$"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "multiple_choice",
+      "title": "二、选择题",
+      "questions": [
+        {
+          "id": 9,
+          "content": "已知点 $A_i(x_i, 0)(1\\leqslant i\\leqslant 10, i\\in \\mathbf{N})$ 与点 $B_i(y_i, 10)(1\\leqslant i\\leqslant 10, i\\in \\mathbf{N})$ 关于点 $(3, 5)$ 对称，若 $x_1, x_2, \\cdots, x_{10}$ 的平均数为 $a$，中位数为 $b$，方差为 $c$，极差为 $d$，则 $y_1, y_2, \\cdots, y_{10}$ 这组数满足",
+          "options": [
+            "平均数为 $3-a$",
+            "中位数为 $6-b$",
+            "方差为 $c$",
+            "极差为 $d$"
+          ]
+        },
+        {
+          "id": 10,
+          "content": "在正方体 $ABCD-A_1B_1C_1D_1$ 中，点 $E, F$ 分别为棱 $B_1C_1, CD$ 的中点，则",
+          "options": [
+            "$AE \\perp BD$",
+            "$A_1E \\perp$ 平面 $BB_1F$",
+            "$EF // $ 平面 $AB_1C$",
+            "$BE // DC_1$"
+          ]
+        },
+        {
+          "id": 11,
+          "content": "已知抛物线 $C: y^2=4x$ 的焦点为 $F$，$O$ 为坐标原点，曲线 $y=k|x-1|$ 交 $C$ 于点 $A(x_1, y_1), B(x_2, y_2)$，若 $k\\in \\left[\\frac{1}{2}, 2\\right]$，则",
+          "options": [
+            "$y_1 y_2 = 4$",
+            "$|AF|+|BF|=2|AF||BF|$",
+            "$\\triangle OAB$ 面积的最小值为 $1$",
+            "$|AB|\\in [3, 8\\sqrt{6}]$"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "fill",
+      "title": "三、填空题",
+      "questions": [
+        {
+          "id": 12,
+          "content": "已知 $2^x=12^y=3$，则 $\\frac{1}{y}-\\frac{2}{x}=$__BLANK__."
+        },
+        {
+          "id": 13,
+          "content": "在正项等比数列 $\\{a_n\\}$ 中，若 $a_1+a_2+a_3=14, a_5+a_6+a_7=224$，则 $a_{10}=$__BLANK__."
+        },
+        {
+          "id": 14,
+          "content": "已知 $a>0$，若 $\\forall x>0$，不等式 $e^{ax-1}\\geqslant \\ln x + \\frac{1}{a}$ 恒成立，则 $a$ 的取值范围为__BLANK__."
+        }
+      ]
+    },
+    {
+      "type": "problem",
+      "title": "四、解答题",
+      "questions": [
+        {
+          "id": 15,
+          "content": "记 $\\triangle ABC$ 的内角 $A, B, C$ 的对边分别为 $a, b, c, a\\sin \\frac{B}{2} = c - b\\cos A$.",
+          "sub_questions": [
+            {
+              "content": "求 $B$;"
+            },
+            {
+              "content": "若 $\\angle ABC$ 的角平分线交 $AC$ 边于点 $D, BD=2, b=2\\sqrt{6}$，求 $\\triangle ABC$ 的周长."
+            }
+          ]
+        },
+        {
+          "id": 16,
+          "content": "如图，在四棱锥 $P-ABCD$ 中，$PA\\perp$ 平面 $ABCD$，且 $AB=4, BC=3, PA=5, \\angle ABC = \\angle BAD = 90^{\\circ}$，$E$ 是 $CD$ 的中点. 若四棱锥 $P-ABCE$ 有外接球.",
+          "sub_questions": [
+            {
+              "content": "求四棱锥 $P-ABCE$ 外接球的体积;"
+            },
+            {
+              "content": "求二面角 $B-PE-C$ 的余弦值."
+            }
+          ]
+        },
+        {
+          "id": 17,
+          "content": "将编号为 $1, 2, \\cdots, n(n\\geqslant 3, n\\in \\mathbf{N}^*)$ 的小球随机放入编号为 $a_1, a_2, \\cdots, a_n$ 的盒子，每个盒子里仅放一个小球，设编号为 $a_i(1\\leqslant i\\leqslant n, i\\in \\mathbf{N}^*)$ 的盒子里小球的编号为 $b_i$，若 $b_i=i$，则称该小球为“配球”.",
+          "sub_questions": [
+            {
+              "content": "当 $n=3$ 时，求“配球”个数 $X$ 的分布列和期望."
+            },
+            {
+              "content": "已知：若随机变量 $X_i$ 服从两点分布，且 $P(X_i=1)=p_i, P(X_i=0)=1-p_i, i=1, 2, \\cdots, n$，则 $E(\\sum_{i=1}^n X_i) = \\sum_{i=1}^n p_i$.",
+              "sub_questions": [
+                {
+                  "content": "求“配球”个数 $X$ 的期望."
+                },
+                {
+                  "content": "若 $b_i$ 满足：当 $i=1$ 时，$b_1>b_{i+1}$；当 $i=n$ 时，$b_i>b_{i-1}$；当 $2\\leqslant i\\leqslant n-1$ 时，$b_i>b_{i-1}$ 且 $b_i>b_{i+1}$，则称该小球为“顶球”，求“顶球”个数 $Y$ 的期望."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": 18,
+          "content": "已知椭圆 $C: \\frac{x^2}{a^2} + \\frac{y^2}{b^2} = 1(a>b>0)$ 的离心率为 $\\frac{1}{2}$，短轴长为 $2\\sqrt{3}$，正 $\\triangle Q_1Q_2Q_3$ 的三边分别与 $C$ 相切于 $P_1, P_2, P_3$ 三点，$O$ 为坐标原点.",
+          "sub_questions": [
+            {
+              "content": "求椭圆 $C$ 的方程;"
+            },
+            {
+              "content": "若直线 $Q_1Q_2$ 的斜率不存在，求 $\\triangle Q_1Q_2Q_3$ 的中心坐标;"
+            },
+            {
+              "content": "求证：点 $O$ 不是 $\\triangle Q_1Q_2Q_3$ 的中心."
+            }
+          ]
+        },
+        {
+          "id": 19,
+          "content": "已知函数 $f(x)=x+\\cos x$.",
+          "sub_questions": [
+            {
+              "content": "若 $f(2m+1)-f(2m-1)>2$，求证：$-1<\\sin m+\\cos m<1$;"
+            },
+            {
+              "content": "若数列 $\\{a_n\\}$ 满足 $a_n=\\sin 2n$，前 $n$ 项和为 $S_n$，求证：$-\\frac{1}{2}\\tan \\frac{1}{2} < S_n < \\frac{1}{2\\tan \\frac{1}{2}}$;"
+            },
+            {
+              "content": "若等差数列 $\\{b_n\\}$ 的公差 $d=2026$，前 $n$ 项和为 $T_n$，$\\sum_{i=1}^{2026} f(b_i) = 1013\\pi$，求 $T_{2026}$."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
