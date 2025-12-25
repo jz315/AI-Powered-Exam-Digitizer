@@ -1,0 +1,225 @@
+{
+  "meta": {
+    "title": "长沙市一中 2026 届高三月考试卷(四)",
+    "subject": "数学"
+  },
+  "sections": [
+    {
+      "type": "single_choice",
+      "title": "一、选择题",
+      "questions": [
+        {
+          "id": 1,
+          "content": "设复数 $z = -\\sqrt{2}i$, 则 $|z|=$",
+          "options": [
+            "-2",
+            "$\\sqrt{2}$",
+            "$-\\sqrt{2}$",
+            "2"
+          ]
+        },
+        {
+          "id": 2,
+          "content": "已知集合 $A=\\{x \\in \\mathbf{R} | x-a>0\\}$, 若 $3 \\in A$ 且 $1 \\notin A$, 则 $a$ 的取值范围为",
+          "options": [
+            "$a<3$",
+            "$a \\ge 1$",
+            "$1 < a \\le 3$",
+            "$1 \\le a < 3$"
+          ]
+        },
+        {
+          "id": 3,
+          "content": "已知在 $\\triangle ABC$ 中, $M$ 是 $BC$ 的中点, $AM=3, BC=4$, 则 $\\overrightarrow{AB} \\cdot \\overrightarrow{AC} =$",
+          "options": [
+            "-5",
+            "-10",
+            "5",
+            "10"
+          ]
+        },
+        {
+          "id": 4,
+          "content": "已知 $a>b>0$, 且 $ab=2$, 则 $\\frac{1}{a} + \\frac{1}{b} + \\frac{8}{a+b}$ 的最小值为",
+          "options": [
+            "$3\\sqrt{2}$",
+            "4",
+            "$6\\sqrt{2}$",
+            "8"
+          ]
+        },
+        {
+          "id": 5,
+          "content": "某餐厅的原料费支出 $x$ (单位: 万元) 与销售额 $y$ (单位: 万元) 之间有如下数据, 根据表中提供的全部数据, 用最小二乘法得出 $y$ 与 $x$ 的经验回归方程为 $y=8.5x+7.5$, 则表中的 $m$ 的值为\n\n$x$ | 2 | 4 | 5 | 6 | 8\n---|---|---|---|---|---\n$y$ | 25 | 35 | $m$ | 55 | 75",
+          "options": [
+            "60",
+            "55",
+            "50",
+            "45"
+          ]
+        },
+        {
+          "id": 6,
+          "content": "在平面直角坐标系 $xOy$ 中, 已知点 $A(-1, -2), B(1, 0)$, $P$ 为直线 $x-y+1=0$ 上一动点, 则 $|PA| + |PB|$ 的最小值是",
+          "options": [
+            "$\\sqrt{2}$",
+            "$2\\sqrt{2}$",
+            "2",
+            "4"
+          ]
+        },
+        {
+          "id": 7,
+          "content": "已知定义域为 $\\mathbf{R}$ 的函数 $f(x)$ 与 $g(x)$ 满足: $f(x)-g(x)=x$, 且 $f(x+1)$ 是奇函数, $g(x+2)$ 是偶函数, 则 $f(2025)=$",
+          "options": [
+            "-1",
+            "2024",
+            "2025",
+            "2026"
+          ]
+        },
+        {
+          "id": 8,
+          "content": "已知 $a=7^9, b=8^8, c=9^7$, 则 $a, b, c$ 的大小关系为",
+          "options": [
+            "$a>b>c$",
+            "$c>b>a$",
+            "$a>c>b$",
+            "$b>c>a$"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "multiple_choice",
+      "title": "二、选择题",
+      "questions": [
+        {
+          "id": 9,
+          "content": "函数 $f(x) = A|\\tan(\\omega x + \\varphi)| (A>0, \\omega>0, 0<\\varphi<\\frac{\\pi}{2})$ 的部分图象如图所示, 则下列结论正确的是",
+          "options": [
+            "函数 $f(x)$ 的最小正周期为 $2\\pi$",
+            "函数 $f(x)$ 的图象关于直线 $x=-\\frac{4\\pi}{3}$ 对称",
+            "$f(x) = 3\\left|\\tan\\left(\\frac{1}{2}x+\\frac{\\pi}{6}\\right)\\right|$",
+            "$f(x)$ 的图象向右平移 $\\frac{\\pi}{3}$ 个单位长度后得到函数 $g(x) = 3|\\tan\\frac{1}{2}x|$"
+          ]
+        },
+        {
+          "id": 10,
+          "content": "已知双曲线 $C: \\frac{x^2}{a^2} - \\frac{y^2}{b^2} = 1 (a>0, b>0)$ 的左、右焦点分别为 $F_1, F_2$, 左、右顶点分别为 $A_1, A_2$, 以 $F_1 F_2$ 为直径的圆与双曲线 $C$ 的一条渐近线交于 $M, N$ 两点, 点 $M$ 位于第一象限, 且 $\\angle A_1 M A_2 = \\frac{\\pi}{3}$, 则下列说法一定正确的是",
+          "options": [
+            "$\\angle M A_2 N = \\frac{2\\pi}{3}$",
+            "双曲线 $C$ 的离心率为 $\\frac{\\sqrt{7}}{3}$",
+            "$|MA_1| = 2|MA_2|$",
+            "当 $a=1$ 时, 四边形 $NF_1 M F_2$ 的面积为 $\\frac{2\\sqrt{7}}{3}$"
+          ]
+        },
+        {
+          "id": 11,
+          "content": "已知正三棱锥 $A-BCF$ 和正四棱锥 $A-BCDE$ 的所有棱长均为 2, 如图将三棱锥 $A-BCF$ 的一个面和正四棱锥 $A-BCDE$ 的一个侧面重合在一起, 得到一个新几何体, 则下列关于该新几何体的说法正确的是",
+          "options": [
+            "新几何体为三棱柱",
+            "$AF \\perp DE$",
+            "直线 $AF$ 与 $CD$ 异面",
+            "正四棱锥 $A-BCDE$ 的棱切球半径为 1"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "fill",
+      "title": "三、填空题",
+      "questions": [
+        {
+          "id": 12,
+          "content": "函数 $f(x) = \\cos x + \\sqrt{3}x$ 的图象在 $x=\\pi$ 处的切线的倾斜角为__BLANK__"
+        },
+        {
+          "id": 13,
+          "content": "甲、乙两位同学进行五子棋比赛, 约定谁先胜 3 局就赢得比赛 (单局中无平局). 若甲每局获胜的概率为 $\\frac{1}{3}$, 则打完第 4 局比赛刚好结束的概率为__BLANK__ (用数字作答)."
+        },
+        {
+          "id": 14,
+          "content": "已知 $S_n$ 为数列 $\\{a_n\\}$ 的前 $n$ 项和, $a_n = 2^k+1, n \\in [2^{k-1}, 2^k), k \\in \\mathbf{N}^*$, 则当 $n=2^k-1, k \\in \\mathbf{N}^*$ 时, $S_n = $ __BLANK__ (用 $k$ 表示)."
+        }
+      ]
+    },
+    {
+      "type": "problem",
+      "title": "四、解答题",
+      "questions": [
+        {
+          "id": 15,
+          "content": "已知 $\\{a_n\\}$ 为等差数列, $b_n = \\begin{cases} a_n - 5, & n \\text{ 为奇数} \\\\ 2a_n, & n \\text{ 为偶数} \\end{cases}$, 记 $S_n, T_n$ 分别为数列 $\\{a_n\\}, \\{b_n\\}$ 的前 $n$ 项和, $S_5 = 35, T_3 = 10$.",
+          "sub_questions": [
+            {
+              "content": "求数列 $\\{a_n\\}$ 的通项公式;"
+            },
+            {
+              "content": "证明: $T_{2n} \\ge S_{2n}$."
+            }
+          ]
+        },
+        {
+          "id": 16,
+          "content": "在 $\\triangle ABC$ 中, 内角 $A, B, C$ 的对边分别为 $a, b, c$, 已知 $b^2 - a^2 = ac$.",
+          "sub_questions": [
+            {
+              "content": "若 $B=60^{\\circ}, b=\\sqrt{3}$, 求 $\\triangle ABC$ 的面积;"
+            },
+            {
+              "content": "若 $\\triangle ABC$ 为锐角三角形, 求 $\\frac{a}{b}$ 的取值范围."
+            }
+          ]
+        },
+        {
+          "id": 17,
+          "content": "如图, 点 $B, D$ 在以 $AC$ 为直径的圆 $O$ 上, $B, D$ 与点 $A, C$ 不重合. $PA \\perp$ 平面 $ABCD$, $M$ 为 $PA$ 的中点, $N$ 为 $BM$ 的中点, $\\overrightarrow{PQ} = \\frac{3}{4} \\overrightarrow{PC}, PA = AC = 2$.",
+          "sub_questions": [
+            {
+              "content": "求证: $NQ \\parallel$ 平面 $ABCD$;"
+            },
+            {
+              "content": "当 $\\angle BAC = 30^{\\circ}$, 求 $OD$ 与平面 $MNQ$ 所成角的正弦值的最大值."
+            }
+          ]
+        },
+        {
+          "id": 18,
+          "content": "已知 $F_1, F_2$ 分别为椭圆 $C: \\frac{x^2}{a^2} + \\frac{y^2}{b^2} = 1 (a>b>0)$ 的上、下焦点, $|F_1 F_2| = 2\\sqrt{2}$, 点 $E(1, \\sqrt{2})$ 为椭圆 $C$ 上一点.",
+          "sub_questions": [
+            {
+              "content": "求椭圆 $C$ 的方程;"
+            },
+            {
+              "content": "椭圆 $C$ 与直线 $l: y=kx+t (k \\neq 0, t \\neq 0)$ 有唯一公共点 $M$, 过点 $M$ 且与 $l$ 垂直的直线分别交 $x$ 轴、$y$ 轴于 $A(x, 0), B(0, y)$ 两点.",
+              "sub_questions": [
+                {
+                  "content": "当点 $M$ 运动时, 求点 $P(x, y)$ 的轨迹方程;"
+                },
+                {
+                  "content": "已知以椭圆 $\\frac{x^2}{m^2} + \\frac{y^2}{n^2} = 1 (m>0, n>0, m \\neq n)$ 上一点 $(p, q)$ 为切点的切线方程为 $\\frac{px}{m^2} + \\frac{qy}{n^2} = 1$. 若直线 $l$ 交直线 $x+y-1=0$ 于点 $Q(x_0, y_0)$, 由点 $Q$ 引椭圆 $C$ 的另一条切线, 切点为 $N$, 求证: 直线 $MN$ 过定点."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": 19,
+          "content": "已知函数 $f(x) = \\ln x - ax$ 的极大值为 -1.",
+          "sub_questions": [
+            {
+              "content": "求实数 $a$ 的值;"
+            },
+            {
+              "content": "令 $F(x) = f(x) + \\frac{k e^{x-1}}{x}$, 实数 $k \\in (0, 1)$. 求证: $F(x)$ 有两个极小值点 $x_1, x_2$, 且 $F(x_1) = F(x_2)$;"
+            },
+            {
+              "content": "若 $g(x) = \\frac{1}{2}x^2 + 2x + 2 + t \\sin x$. 若 $\\exists x \\in [\\frac{\\pi}{6}, \\frac{\\pi}{2}]$, $f(x+1) + g(x) \\ge 0$ 成立, 求整数 $t$ 的最小值.\n\n(参考数据: $\\ln(\\frac{\\pi}{6}+1) \\approx 0.4211, \\ln(\\frac{\\pi}{4}+1) \\approx 0.5796, \\ln(\\frac{\\pi}{2}+1) \\approx 0.9442, (\\frac{\\pi}{4})^2 \\approx 0.6169, (\\frac{\\pi}{6})^2 \\approx 0.2742, (\\frac{\\pi}{2})^2 \\approx 2.4674$)"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

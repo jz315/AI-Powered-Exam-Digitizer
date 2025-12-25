@@ -10,7 +10,7 @@
 \begin{document}
 
 % --- 定义递归渲染宏 (Macro) ---
-% 这里的逻辑是：如果有 sub_questions，就生成 enumerate 环境，并递归调用
+% 逻辑：如果有 sub_questions，就生成 enumerate 环境，并递归调用
 ((* macro render_sub_questions(sub_list, level=1) *))
     % 根据层级设定不同的标签样式
     % 第一层用 (1), (2); 第二层用 (i), (ii); 第三层用 (a), (b)
@@ -49,9 +49,9 @@
     ((* if section.type == 'single_choice' or section.type == 'multiple_choice' *))
         ((* for q in section.questions *))
         \begin{question}
-            (( q.content )) \paren[]
+            (( q.content ))
 
-             % TikZ 图形渲染
+            % TikZ 图形渲染
             ((* if q.figure and q.figure.type == 'tikz' *))
             \begin{center}
                 (( q.figure.code ))
@@ -63,6 +63,12 @@
                 \item (( opt ))
                 ((* endfor *))
             \end{choices}
+
+            ((* if q.image *))
+            \begin{center}
+                \parbox[c][(( q.image.height ))][c]{(( q.image.width ))}{}
+            \end{center}
+            ((* endif *))
         \end{question}
         ((* endfor *))
 
@@ -75,30 +81,49 @@
                 (( q.figure.code ))
             \end{center}
             ((* endif *))
+            ((* if q.image *))
+            \begin{center}
+                \parbox[c][(( q.image.height ))][c]{(( q.image.width ))}{}
+            \end{center}
+            ((* endif *))
             (( q.content ))
         \end{question}
         ((* endfor *))
 
-    % === 类型3：解答题 (重点修改部分) ===
+    % === 类型3：解答题（两题一页） ===
     ((* elif section.type == 'problem' *))
         ((* for q in section.questions *))
-        \begin{problem}[points = (( q.score | default(10) )) ]
-            (( q.content ))
+        \noindent
+        % 每道题固定占用半页高度（可调：0.48\textheight）
+        \begin{minipage}[t][0.48\textheight]{\textwidth}
+            \begin{problem}
+                (( q.content ))
 
-            ((* if q.figure and q.figure.type == 'tikz' *))
-            \begin{center}
-                (( q.figure.code ))
-            \end{center}
-            ((* endif *))
+                ((* if q.figure and q.figure.type == 'tikz' *))
+                \begin{center}
+                    (( q.figure.code ))
+                \end{center}
+                ((* endif *))
 
-            % 调用上面定义的递归宏
-            ((* if q.sub_questions *))
-                (( render_sub_questions(q.sub_questions, 1) ))
-            ((* endif *))
+                % 子小问递归渲染
+                ((* if q.sub_questions *))
+                    (( render_sub_questions(q.sub_questions, 1) ))
+                ((* endif *))
 
-            % 预留空白供作答
-            \vspace{8cm} 
-        \end{problem}
+                ((* if q.image *))
+                \begin{center}
+                    \parbox[c][(( q.image.height ))][c]{(( q.image.width ))}{}
+                \end{center}
+                ((* endif *))
+                
+            \end{problem}
+
+            % 将本半页剩余空间全部留作答题区（弹性留白）
+            \vfill
+        \end{minipage}
+
+       
+
         ((* endfor *))
 
     ((* endif *))

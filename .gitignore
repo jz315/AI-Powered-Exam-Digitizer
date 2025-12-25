@@ -6,6 +6,17 @@ dist/
 wheels/
 *.egg-info
 output/
+temp_build/
+
+# LaTeX build artifacts
+*.aux
+*.log
+*.out
+*.toc
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.xelatex.txt
 
 # Virtual environments
 .venv
