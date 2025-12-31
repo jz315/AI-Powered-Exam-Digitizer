@@ -422,6 +422,8 @@ class PremiumExamApp(ctk.CTk):
             self._text_widget.tag_add("warning_line", f"{line}.0", f"{line}.0 lineend")
         for line in error_lines:
             self._text_widget.tag_add("error_line", f"{line}.0", f"{line}.0 lineend")
+        self._text_widget.tag_raise("warning_line")
+        self._text_widget.tag_raise("error_line")
 
         self._update_line_numbers()
 
@@ -542,11 +544,13 @@ class PremiumExamApp(ctk.CTk):
 
             err_n = sum(1 for i in issues if i.severity == "error")
             warn_n = sum(1 for i in issues if i.severity == "warning")
-            if err_n:
-                self.flash_status(f"❌ 发现 {err_n} 个错误，请先修正后再生成")
+            if data is None:
+                self.flash_status("? JSON ?????????")
                 return
-            if warn_n:
-                self.flash_status(f"⚠️ 发现 {warn_n} 个警告（仍将继续生成）")
+            if err_n:
+                self.flash_status(f"?? ?? {err_n} ???????????")
+            elif warn_n:
+                self.flash_status(f"?? ?? {warn_n} ???????????")
 
             # --- 2. 规划路径 ---
             
@@ -596,11 +600,13 @@ class PremiumExamApp(ctk.CTk):
             
             # 调用 generator 编译，因为它是在 safe_temp_dir 下，且文件名是 main.tex
             # 路径全是英文，XeLaTeX 极其稳定
-            self.generator.compile_pdf(temp_tex_path)
+            compile_ok = self.generator.compile_pdf(temp_tex_path)
 
             # --- 6. 搬运结果 (从安全区 -> 中文区) ---
             
             temp_pdf_path = os.path.join(safe_temp_dir, "main.pdf")
+            log_path = os.path.join(safe_temp_dir, "main.log")
+            detail = extract_first_latex_error(log_path, temp_tex_path)
             
             if os.path.exists(temp_pdf_path):
                 # 目标文件名
@@ -618,6 +624,14 @@ class PremiumExamApp(ctk.CTk):
                     shutil.copy2(temp_tex_path, target_tex_path)
                     
                     self.flash_status("🎉 成功！PDF 已生成并保存")
+                    if detail or not compile_ok:
+                        merged = issues + ([detail] if detail else [])
+                        if merged:
+                            self._set_issues_panel(
+                                merged,
+                                header="⚠️ LaTeX 编译有报错（仍生成 PDF）",
+                            )
+                        self.flash_status("⚠️ LaTeX 编译有报错，请查看问题面板")
                     
                     # 尝试打开最终的中文文件夹
                     try:
@@ -629,8 +643,6 @@ class PremiumExamApp(ctk.CTk):
                 except Exception as e:
                     self.flash_status(f"❌ 移动文件失败: {e}")
             else:
-                log_path = os.path.join(safe_temp_dir, "main.log")
-                detail = extract_first_latex_error(log_path, temp_tex_path)
                 if detail:
                     merged = issues + [detail]
                     self._set_issues_panel(merged, header="❌ LaTeX 编译失败（已提取首个错误）")

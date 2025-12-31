@@ -13,14 +13,14 @@
 - 禁止包含答案或手写痕迹。
 - 禁止保留题目开头的序号（如 "1.", "(1)"），题号由前端处理。
 - 禁止转换/描述图片内容，只能使用 image 占位
-- PLAN MODE: if any content field contains "\n", output an error and do not return JSON.
+- 禁止包含`"\\n"`，请写成`"\\newline"`
 
 # 📝 Processing Rules
 1. **LaTeX 公式**：
    - **关键**：必须包含在 `$` 中，例如 `$x^2$`，在options中，也要加$$。
-   - **关键**：JSON 字符串中的反斜杠必须双重转义。例如 `\frac` 必须写成 `"\\frac"`。\paren[]
+   - **关键**：JSON 字符串中的反斜杠必须双重转义。例如 `\frac` 必须写成 `"\\frac"`。\\paren[]
 2. **选择处理**：
-   - 括号 `（）` 统一替换为 `"\paren[]"`。
+   - 括号 `（）` 统一替换为 `"\\paren[]"`。
 3. **填空处理**：
    - 下划线 `___` 统一替换为 `"__BLANK__"`。
 4. **表格处理**：
@@ -50,7 +50,7 @@
   "questions": [
     {
       "id": 1,
-      "content": "已知集合 $M=\\{x|x^2<1\\}$，N为整数集，则 $M \\cap N =$ \paren[]",
+      "content": "已知集合 $M=\\{x|x^2<1\\}$，N为整数集，则 $M \\cap N =$ \\paren[]",
       "options": [
         "$\\{-1,0,1\\}$",
         "$\\{0\\}$",
@@ -80,7 +80,7 @@
   "questions": [
     {
       "id": 19,
-      "content": "某实验室数据如下表：\\n\\begin{tabular}{|c|c|c|} \\hline x & 1 & 2 \\\\ \\hline y & 3 & 5 \\\\ \\hline \\end{tabular}",
+      "content": "某实验室数据如下表：\\newline \\begin{tabular}{|c|c|c|} \\hline x & 1 & 2 \\\\ \\hline y & 3 & 5 \\\\ \\hline \\end{tabular}",
       "sub_questions": [
         {
           "content": "求 $y$ 关于 $x$ 的线性回归方程；",
@@ -122,8 +122,8 @@
       "id": 5,
       "content": "如图，直线 $l$ 与曲线 $C$ 相交于点，求交点的模型表达式。",
       "image": {
-        "width": "0.6\\textwidth",
-        "height": "0.25\\textheight"
+        "width": "0.4\\textwidth",
+        "height": "0.12\\textheight"
       },
       "sub_questions": []
     }

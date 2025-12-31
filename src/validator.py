@@ -147,6 +147,26 @@ def _find_suspicious_json_escapes(raw: str) -> list[ValidationIssue]:
             escaped = True
             esc = raw[i + 1]
             nxt2 = raw[i + 2] if i + 2 < len(raw) else ""
+            if esc == "n":
+                issues.append(
+                    ValidationIssue(
+                        severity="error",
+                        message="检测到 \\n 转义（会被解析成换行），请移除或改写",
+                        line=line,
+                        col=col,
+                    )
+                )
+            elif esc == "\\" and nxt2 == "n":
+                nxt3 = raw[i + 3] if i + 3 < len(raw) else ""
+                if not nxt3.isalpha():
+                    issues.append(
+                        ValidationIssue(
+                            severity="warning",
+                            message="检测到字面量 \\n（若表示换行，建议用 \\newline 或 \\\\）",
+                            line=line,
+                            col=col,
+                        )
+                    )
             if esc in escape_letters and nxt2.isalpha():
                 issues.append(
                     ValidationIssue(
@@ -283,16 +303,6 @@ def _validate_latex_string(s: str, path: str) -> list[ValidationIssue]:
                 severity="error",
                 path=path,
                 message=f"检测到控制字符 {sample}（疑似 JSON 中反斜杠未写成 \\\\，例如 \\\\frac / \\\\begin）",
-            )
-        )
-
-    # 1.5) 含 \\n 直接报错
-    if "\\n" in s:
-        issues.append(
-            ValidationIssue(
-                severity="error",
-                path=path,
-                message="检测到 \\n 字符串，请移除",
             )
         )
 
