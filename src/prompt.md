@@ -8,7 +8,6 @@
 4. 输出纯净的 JSON。
 
 # 🚫 Strict Constraints (绝对禁止)
-- 禁止输出 Markdown 代码块标记（如 ```json）。
 - 禁止输出任何解释性文字或闲聊。
 - 禁止包含答案或手写痕迹。
 - 禁止保留题目开头的序号（如 "1.", "(1)"），题号由前端处理。
@@ -143,7 +142,7 @@ JSON Schema
         {
           "id": "Number (原始题号)",
           "content": "String (题目文本, LaTeX需转义)",
-          "options": ["String"] (仅选择题, 去除A/B前缀),
+          "options": ["String"] (仅选择题, 去除A/B前缀)
             "image": {
               "width": "String (可选，默认0.6\textwidth)",
               "height": "String (可选，默认0.25\textheight)",

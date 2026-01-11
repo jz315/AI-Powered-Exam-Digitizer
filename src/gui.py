@@ -1,14 +1,19 @@
 import customtkinter as ctk
 import tkinter as tk
+from tkinter import filedialog, messagebox
 import os
 import json
+import time
 import threading
+import io
 import pyperclip
 import subprocess
 import sys
 import shutil  # 关键库：用于文件搬运
 from generator import ExamGenerator
 from validator import ValidationIssue, extract_first_latex_error, validate_json_and_latex
+from image_preprocess import ImagePreprocessTool
+
 
 # --- 全局配置 ---
 ctk.set_appearance_mode("System")  # 跟随系统深色/浅色模式
@@ -59,6 +64,14 @@ class PremiumExamApp(ctk.CTk):
         # 初始化业务逻辑
         self.generator = ExamGenerator(template_file='src/exam_template.txt')
         self.prompt_file = 'src/prompt.md'
+        self._image_tool = None
+        self._pdf_path = ""
+        self._pdf_ocr_last_text = ""
+        self._pdf_ocr_last_dir = ""
+        self._pdf_ocr_preview = None
+        self._config_path = os.path.join(os.path.expanduser("~"), ".latex_template_gui.json")
+        self._log_lock = threading.Lock()
+        self._log_path = self._init_log_file()
 
         # === 顶部 Header ===
         self.setup_header()
@@ -73,6 +86,8 @@ class PremiumExamApp(ctk.CTk):
         
         self.setup_step1_card() # 复制 Prompt
         self.setup_step2_card() # 文件名配置
+        self.setup_pdf_ocr_card() # PDF 切题 + Gemini OCR
+        self.setup_image_tool_card() # 图片预处理工具
         self.setup_action_card() # 生成按钮
 
         # === 右侧面板 (JSON Editor) ===
@@ -88,6 +103,7 @@ class PremiumExamApp(ctk.CTk):
         # 右侧内部布局
         self.right_frame.grid_rowconfigure(1, weight=4) # JSON 区域伸缩
         self.right_frame.grid_rowconfigure(2, weight=1) # 问题面板伸缩
+        self.right_frame.grid_rowconfigure(3, weight=1) # 日志面板伸缩
         self.right_frame.grid_columnconfigure(0, weight=1)
 
         self._validation_after_id = None
@@ -103,14 +119,18 @@ class PremiumExamApp(ctk.CTk):
         self.protocol("WM_DELETE_WINDOW", self._on_close)
 
         self.setup_json_editor()
+        self.setup_log_panel()
         self._ensure_validation_worker()
 
     # ---------------- 界面构建 ----------------
 
     def _on_close(self):
         try:
+            if self._image_tool is not None and self._image_tool.winfo_exists():
+                self._image_tool.destroy()
             self._validation_stop_event.set()
             self._validation_request_event.set()
+            self._save_pdf_ocr_config()
         except Exception:
             pass
         self.destroy()
@@ -239,6 +259,176 @@ class PremiumExamApp(ctk.CTk):
         )
         self.entry_filename.pack(fill="x", padx=Theme.PAD_INNER, pady=(5, Theme.PAD_INNER))
 
+    def setup_pdf_ocr_card(self):
+        """PDF 上传 -> PaddleOCR 切题 -> Gemini 转写 -> 合并"""
+        card = self.create_left_card("PDF 切题 + Gemini OCR", "📄")
+
+        desc = ctk.CTkLabel(
+            card,
+            text=(
+                "上传 PDF 后，使用 PaddleOCR 根据题号位置切分为单题图片；"
+                "再调用 Gemini 把每题转写为文字并合并。"
+            ),
+            font=(Theme.FONT_FAMILY[0], 12),
+            text_color=Theme.COLOR_TEXT_SECONDARY,
+            anchor="w",
+            justify="left",
+            wraplength=320,
+        )
+        desc.pack(fill="x", padx=Theme.PAD_INNER, pady=(0, 12))
+
+        self.pdf_path_label = ctk.CTkLabel(
+            card,
+            text="未选择 PDF",
+            font=(Theme.FONT_FAMILY[0], 12),
+            text_color=Theme.COLOR_TEXT_SECONDARY,
+            anchor="w",
+            justify="left",
+            wraplength=320,
+        )
+        self.pdf_path_label.pack(fill="x", padx=Theme.PAD_INNER, pady=(0, 10))
+
+        btn_row = ctk.CTkFrame(card, fg_color="transparent")
+        btn_row.pack(fill="x", padx=Theme.PAD_INNER, pady=(0, 10))
+        btn_row.grid_columnconfigure(0, weight=1)
+        btn_row.grid_columnconfigure(1, weight=1)
+
+        self.btn_select_pdf = ctk.CTkButton(
+            btn_row,
+            text="📄 选择 PDF",
+            command=self.select_pdf_file,
+            height=38,
+            corner_radius=Theme.CORNER_RADIUS_S,
+            font=(Theme.FONT_FAMILY_BOLD[0], 13),
+            fg_color=Theme.COLOR_BLUE_BTN,
+            hover_color=Theme.COLOR_BLUE_HOVER,
+        )
+        self.btn_select_pdf.grid(row=0, column=0, sticky="ew", padx=(0, 6))
+
+        self.btn_run_pdf_ocr = ctk.CTkButton(
+            btn_row,
+            text="🤖 开始切题/转写",
+            command=self.start_pdf_ocr_thread,
+            height=38,
+            corner_radius=Theme.CORNER_RADIUS_S,
+            font=(Theme.FONT_FAMILY_BOLD[0], 13),
+            fg_color=Theme.COLOR_GREEN_BTN,
+            hover_color=Theme.COLOR_GREEN_HOVER,
+        )
+        self.btn_run_pdf_ocr.grid(row=0, column=1, sticky="ew", padx=(6, 0))
+
+        env_key = os.environ.get("GEMINI_API_KEY", "").strip()
+        self.entry_gemini_key = ctk.CTkEntry(
+            card,
+            placeholder_text="🔑 Gemini API Key (或环境变量 GEMINI_API_KEY)",
+            height=38,
+            corner_radius=Theme.CORNER_RADIUS_S,
+            font=(Theme.FONT_FAMILY[0], 13),
+            border_width=1,
+            fg_color=("gray98", "gray20"),
+            show="•",
+        )
+        if env_key:
+            self.entry_gemini_key.insert(0, env_key)
+        self.entry_gemini_key.pack(fill="x", padx=Theme.PAD_INNER, pady=(0, 10))
+        self.entry_gemini_key.bind("<FocusOut>", lambda _e: self._save_pdf_ocr_config())
+
+        env_model = os.environ.get("GEMINI_MODEL", "").strip() or "gemini-3-flash-preview"
+        self.entry_gemini_model = ctk.CTkEntry(
+            card,
+            placeholder_text="🧠 Gemini 模型名 (默认 gemini-3-flash-preview)",
+            height=38,
+            corner_radius=Theme.CORNER_RADIUS_S,
+            font=(Theme.FONT_FAMILY[0], 13),
+            border_width=1,
+            fg_color=("gray98", "gray20"),
+        )
+        self.entry_gemini_model.insert(0, env_model)
+        self.entry_gemini_model.pack(fill="x", padx=Theme.PAD_INNER, pady=(0, 10))
+        self.entry_gemini_model.bind("<FocusOut>", lambda _e: self._save_pdf_ocr_config())
+
+        self.entry_pdf_dpi = ctk.CTkEntry(
+            card,
+            placeholder_text="🖨️ 渲染 DPI (默认 200)",
+            height=38,
+            corner_radius=Theme.CORNER_RADIUS_S,
+            font=(Theme.FONT_FAMILY[0], 13),
+            border_width=1,
+            fg_color=("gray98", "gray20"),
+        )
+        self.entry_pdf_dpi.insert(0, "200")
+        self.entry_pdf_dpi.pack(fill="x", padx=Theme.PAD_INNER, pady=(0, 10))
+        self.entry_pdf_dpi.bind("<FocusOut>", lambda _e: self._save_pdf_ocr_config())
+
+        self.switch_pdf_minimal_prompt = ctk.CTkSwitch(
+            card,
+            text="🧾 Minimal Prompt（更短更快）",
+        )
+        self.switch_pdf_minimal_prompt.pack(fill="x", padx=Theme.PAD_INNER, pady=(0, 10))
+        self.switch_pdf_minimal_prompt.configure(command=self._save_pdf_ocr_config)
+
+        self.switch_pdf_use_gpu = ctk.CTkSwitch(
+            card,
+            text="🚀 使用 GPU（需要 CUDA 版 paddlepaddle）",
+        )
+        self.switch_pdf_use_gpu.pack(fill="x", padx=Theme.PAD_INNER, pady=(0, 10))
+        self.switch_pdf_use_gpu.configure(command=self._save_pdf_ocr_config)
+
+        self.switch_pdf_require_gpu = ctk.CTkSwitch(
+            card,
+            text="⚠️ 必须使用 GPU（失败则停止）",
+        )
+        self.switch_pdf_require_gpu.pack(fill="x", padx=Theme.PAD_INNER, pady=(0, 10))
+        self.switch_pdf_require_gpu.configure(command=self._save_pdf_ocr_config)
+
+        self.pdf_ocr_progress = ctk.CTkProgressBar(card, mode="determinate")
+        self.pdf_ocr_progress.pack(fill="x", padx=Theme.PAD_INNER, pady=(0, 8))
+        self.pdf_ocr_progress.set(0)
+
+        self.pdf_ocr_status_label = ctk.CTkLabel(
+            card,
+            text="等待上传 PDF...",
+            font=(Theme.FONT_FAMILY[0], 12),
+            text_color=Theme.COLOR_TEXT_SECONDARY,
+            anchor="w",
+            justify="left",
+            wraplength=320,
+        )
+        self.pdf_ocr_status_label.pack(fill="x", padx=Theme.PAD_INNER, pady=(0, Theme.PAD_INNER))
+
+        action_row = ctk.CTkFrame(card, fg_color="transparent")
+        action_row.pack(fill="x", padx=Theme.PAD_INNER, pady=(0, Theme.PAD_INNER))
+        action_row.grid_columnconfigure(0, weight=1)
+        action_row.grid_columnconfigure(1, weight=1)
+
+        self.btn_copy_pdf_ocr = ctk.CTkButton(
+            action_row,
+            text="📋 复制合并文本",
+            command=self.copy_pdf_ocr_result,
+            height=36,
+            corner_radius=Theme.CORNER_RADIUS_S,
+            font=(Theme.FONT_FAMILY_BOLD[0], 13),
+            fg_color=Theme.COLOR_BLUE_BTN,
+            hover_color=Theme.COLOR_BLUE_HOVER,
+            state="disabled",
+        )
+        self.btn_copy_pdf_ocr.grid(row=0, column=0, sticky="ew", padx=(0, 6))
+
+        self.btn_open_pdf_ocr_dir = ctk.CTkButton(
+            action_row,
+            text="📂 打开输出目录",
+            command=self.open_pdf_ocr_output_dir,
+            height=36,
+            corner_radius=Theme.CORNER_RADIUS_S,
+            font=(Theme.FONT_FAMILY_BOLD[0], 13),
+            fg_color=Theme.COLOR_BLUE_BTN,
+            hover_color=Theme.COLOR_BLUE_HOVER,
+            state="disabled",
+        )
+        self.btn_open_pdf_ocr_dir.grid(row=0, column=1, sticky="ew", padx=(6, 0))
+
+        self._load_pdf_ocr_config()
+
     def setup_action_card(self):
         """Action Area"""
         container = ctk.CTkFrame(self.left_frame, fg_color="transparent")
@@ -255,6 +445,282 @@ class PremiumExamApp(ctk.CTk):
             hover_color=Theme.COLOR_GREEN_HOVER
         )
         self.btn_generate.pack(fill="x")
+
+    def setup_image_tool_card(self):
+        """图片预处理工具"""
+        card = self.create_left_card("图片预处理", "🧼")
+
+        desc = ctk.CTkLabel(
+            card,
+            text="小工具：对截图做二值化处理，去除浅色水印、提高清晰度。",
+            font=(Theme.FONT_FAMILY[0], 12),
+            text_color=Theme.COLOR_TEXT_SECONDARY,
+            anchor="w",
+            justify="left",
+            wraplength=320,
+        )
+        desc.pack(fill="x", padx=Theme.PAD_INNER, pady=(0, 15))
+
+        btn = ctk.CTkButton(
+            card,
+            text="🖼️ 打开二值化工具",
+            command=self.open_image_tool,
+            height=40,
+            corner_radius=Theme.CORNER_RADIUS_S,
+            font=(Theme.FONT_FAMILY_BOLD[0], 14),
+            fg_color=Theme.COLOR_BLUE_BTN,
+            hover_color=Theme.COLOR_BLUE_HOVER,
+        )
+        btn.pack(fill="x", padx=Theme.PAD_INNER, pady=(0, Theme.PAD_INNER))
+
+    def open_image_tool(self):
+        if self._image_tool is None or not self._image_tool.winfo_exists():
+            self._image_tool = ImagePreprocessTool(self, theme=Theme, on_close=self._on_image_tool_close)
+        else:
+            self._image_tool.focus()
+            self._image_tool.lift()
+
+    def _on_image_tool_close(self):
+        self._image_tool = None
+
+    # ---------------- PDF 切题 + Gemini OCR ----------------
+
+    def select_pdf_file(self):
+        path = filedialog.askopenfilename(
+            title="选择 PDF",
+            filetypes=[("PDF Files", "*.pdf")],
+        )
+        if not path:
+            return
+        self._pdf_path = path
+        self.pdf_path_label.configure(text=path)
+        self.pdf_ocr_status_label.configure(text="已选择 PDF，点击开始即可。")
+        self.pdf_ocr_progress.set(0)
+
+    def _set_pdf_ocr_status(self, text: str):
+        self.after(0, lambda: self.pdf_ocr_status_label.configure(text=text))
+        self._append_log(text)
+
+    def _set_pdf_ocr_progress(self, value: float):
+        v = max(0.0, min(1.0, float(value)))
+        self.after(0, lambda: self.pdf_ocr_progress.set(v))
+
+    def _set_pdf_ocr_controls_enabled(self, enabled: bool):
+        def apply():
+            st = "normal" if enabled else "disabled"
+            self.btn_select_pdf.configure(state=st)
+            self.btn_run_pdf_ocr.configure(state=st)
+            self.entry_gemini_key.configure(state=st)
+            self.entry_gemini_model.configure(state=st)
+            self.entry_pdf_dpi.configure(state=st)
+
+        self.after(0, apply)
+
+    def start_pdf_ocr_thread(self):
+        if not self._pdf_path or not os.path.exists(self._pdf_path):
+            messagebox.showwarning("提示", "请先选择一个 PDF 文件。")
+            return
+
+        api_key = (self.entry_gemini_key.get() or os.environ.get("GEMINI_API_KEY", "")).strip()
+        if not api_key:
+            messagebox.showwarning("提示", "请填写 Gemini API Key（或设置环境变量 GEMINI_API_KEY）。")
+            return
+
+        model = (self.entry_gemini_model.get() or "gemini-1.5-flash").strip()
+        dpi_raw = (self.entry_pdf_dpi.get() or "200").strip()
+        use_gpu = bool(self.switch_pdf_use_gpu.get()) if hasattr(self, "switch_pdf_use_gpu") else False
+        require_gpu = bool(self.switch_pdf_require_gpu.get()) if hasattr(self, "switch_pdf_require_gpu") else False
+        use_minimal_prompt = bool(self.switch_pdf_minimal_prompt.get()) if hasattr(self, "switch_pdf_minimal_prompt") else False
+        try:
+            dpi = int(dpi_raw)
+        except Exception:
+            messagebox.showwarning("提示", "DPI 必须是整数，例如 200。")
+            return
+
+        self._pdf_ocr_last_text = ""
+        self._pdf_ocr_last_dir = ""
+        self.btn_copy_pdf_ocr.configure(state="disabled")
+        self.btn_open_pdf_ocr_dir.configure(state="disabled")
+
+        self._set_pdf_ocr_controls_enabled(False)
+        self._set_pdf_ocr_progress(0)
+        self._set_pdf_ocr_status("开始处理...")
+        self.flash_status("📄 PDF 切题/转写处理中...")
+
+        threading.Thread(
+            target=self._run_pdf_ocr,
+            args=(self._pdf_path, api_key, model, dpi, use_gpu, require_gpu, use_minimal_prompt),
+            daemon=True,
+        ).start()
+
+    def _run_pdf_ocr(self, pdf_path: str, api_key: str, model: str, dpi: int, use_gpu: bool, require_gpu: bool, use_minimal_prompt: bool):
+        try:
+            prompt = build_minimal_math_ocr_prompt() if use_minimal_prompt else None
+            result = run_pdf_ocr_pipeline(
+                pdf_path=pdf_path,
+                out_root=os.path.join("output", "pdf_ocr"),
+                dpi=dpi,
+                lang="ch",
+                use_gpu=use_gpu,
+                require_gpu=require_gpu,
+                do_gemini=True,
+                gemini_api_key=api_key,
+                gemini_model=model,
+                prompt=prompt,
+                on_status=self._set_pdf_ocr_status,
+                on_progress=self._set_pdf_ocr_progress,
+            )
+
+            self._pdf_ocr_last_text = result.merged_text
+            self._pdf_ocr_last_dir = result.out_dir
+
+            try:
+                pyperclip.copy(result.merged_text)
+            except Exception:
+                pass
+
+            self._set_pdf_ocr_progress(1.0)
+            self._set_pdf_ocr_status("完成：已输出题目图片/单题文本/merged.txt（合并文本已复制到剪贴板）。")
+            self.flash_status("✅ PDF 切题/转写完成（已复制到剪贴板）")
+
+            self.after(0, lambda: self.btn_copy_pdf_ocr.configure(state="normal"))
+            self.after(0, lambda: self.btn_open_pdf_ocr_dir.configure(state="normal"))
+            pdf_name = os.path.splitext(os.path.basename(pdf_path))[0]
+            self.after(0, lambda: self._show_pdf_ocr_preview(pdf_name, result.merged_text))
+            self.after(0, lambda: messagebox.showinfo("完成", f"处理完成，输出目录：\n{result.out_dir}\n\n合并文本已复制到剪贴板。"))
+
+        except Exception as e:
+            err_msg = str(e)
+            self._set_pdf_ocr_status(f"失败：{e}")
+            self.flash_status(f"❌ PDF 切题/转写失败：{e}")
+            self.after(0, lambda m=err_msg: messagebox.showerror("失败", m))
+        finally:
+            self._set_pdf_ocr_controls_enabled(True)
+
+    def copy_pdf_ocr_result(self):
+        if not self._pdf_ocr_last_text.strip():
+            messagebox.showinfo("提示", "暂无可复制的合并文本。")
+            return
+        try:
+            pyperclip.copy(self._pdf_ocr_last_text)
+            self.flash_status("✅ 合并文本已复制到剪贴板")
+        except Exception as e:
+            messagebox.showerror("失败", f"复制失败：{e}")
+
+    def open_pdf_ocr_output_dir(self):
+        path = self._pdf_ocr_last_dir.strip()
+        if not path or not os.path.exists(path):
+            messagebox.showinfo("提示", "暂无输出目录。")
+            return
+        try:
+            if os.name == "nt":
+                os.startfile(path)
+            elif sys.platform == "darwin":
+                subprocess.call(["open", path])
+            else:
+                subprocess.call(["xdg-open", path])
+        except Exception as e:
+            messagebox.showerror("失败", f"打开目录失败：{e}")
+
+    def _show_pdf_ocr_preview(self, title: str, text: str):
+        try:
+            if self._pdf_ocr_preview is not None and self._pdf_ocr_preview.winfo_exists():
+                self._pdf_ocr_preview.destroy()
+        except Exception:
+            pass
+
+        win = ctk.CTkToplevel(self)
+        self._pdf_ocr_preview = win
+        win.title(f"PDF OCR 结果 - {title}")
+        win.geometry("920x680")
+
+        top = ctk.CTkFrame(win, fg_color="transparent")
+        top.pack(fill="x", padx=16, pady=(16, 8))
+
+        ctk.CTkLabel(
+            top,
+            text="🧾 合并文本预览（已复制到剪贴板）",
+            font=(Theme.FONT_FAMILY_BOLD[0], 15),
+            text_color=Theme.COLOR_TEXT_PRIMARY,
+        ).pack(side="left")
+
+        btn = ctk.CTkButton(
+            top,
+            text="📋 再复制一次",
+            command=self.copy_pdf_ocr_result,
+            height=34,
+            corner_radius=Theme.CORNER_RADIUS_S,
+            font=(Theme.FONT_FAMILY_BOLD[0], 13),
+            fg_color=Theme.COLOR_BLUE_BTN,
+            hover_color=Theme.COLOR_BLUE_HOVER,
+        )
+        btn.pack(side="right")
+
+        box = ctk.CTkTextbox(
+            win,
+            font=(Theme.FONT_CODE[0], 12),
+            corner_radius=Theme.CORNER_RADIUS_S,
+            fg_color=("gray95", "#1E1E1E"),
+            border_width=0,
+            activate_scrollbars=True,
+        )
+        box.pack(fill="both", expand=True, padx=16, pady=(0, 16))
+        box.insert("0.0", text)
+        box.configure(state="disabled")
+
+    def _load_pdf_ocr_config(self):
+        try:
+            if not os.path.exists(self._config_path):
+                return
+            with open(self._config_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except Exception:
+            return
+
+        try:
+            key = str(data.get("gemini_key", "")).strip()
+            if key and not self.entry_gemini_key.get().strip():
+                self.entry_gemini_key.insert(0, key)
+        except Exception:
+            pass
+
+        try:
+            model = str(data.get("gemini_model", "")).strip()
+            if model:
+                self.entry_gemini_model.delete(0, "end")
+                self.entry_gemini_model.insert(0, model)
+        except Exception:
+            pass
+
+        try:
+            dpi = str(data.get("pdf_dpi", "")).strip()
+            if dpi:
+                self.entry_pdf_dpi.delete(0, "end")
+                self.entry_pdf_dpi.insert(0, dpi)
+        except Exception:
+            pass
+
+        try:
+            self.switch_pdf_use_gpu.set(1 if data.get("use_gpu") else 0)
+            self.switch_pdf_require_gpu.set(1 if data.get("require_gpu") else 0)
+            self.switch_pdf_minimal_prompt.set(1 if data.get("minimal_prompt") else 0)
+        except Exception:
+            pass
+
+    def _save_pdf_ocr_config(self):
+        try:
+            data = {
+                "gemini_key": self.entry_gemini_key.get().strip(),
+                "gemini_model": self.entry_gemini_model.get().strip(),
+                "pdf_dpi": self.entry_pdf_dpi.get().strip(),
+                "use_gpu": bool(self.switch_pdf_use_gpu.get()),
+                "require_gpu": bool(self.switch_pdf_require_gpu.get()),
+                "minimal_prompt": bool(self.switch_pdf_minimal_prompt.get()),
+            }
+            with open(self._config_path, "w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=True, indent=2)
+        except Exception:
+            pass
 
     def setup_json_editor(self):
         """右侧 JSON 编辑器"""
@@ -344,6 +810,106 @@ class PremiumExamApp(ctk.CTk):
         )
         self.issues_textbox.grid(row=1, column=0, sticky="nsew", padx=Theme.PAD_INNER, pady=(0, Theme.PAD_INNER))
         self._set_issues_panel([], header="🧪 校验结果：未校验")
+
+    def setup_log_panel(self):
+        """右侧日志面板"""
+        log_frame = ctk.CTkFrame(
+            self.right_frame,
+            fg_color=("gray98", "gray20"),
+            corner_radius=Theme.CORNER_RADIUS_S,
+            border_width=1,
+            border_color=Theme.COLOR_BORDER,
+        )
+        log_frame.grid(row=3, column=0, sticky="nsew", padx=Theme.PAD_INNER, pady=(0, Theme.PAD_INNER))
+        log_frame.grid_rowconfigure(1, weight=1)
+        log_frame.grid_columnconfigure(0, weight=1)
+
+        header = ctk.CTkFrame(log_frame, fg_color="transparent")
+        header.grid(row=0, column=0, sticky="ew", padx=Theme.PAD_INNER, pady=(10, 6))
+        header.grid_columnconfigure(0, weight=1)
+
+        ctk.CTkLabel(
+            header,
+            text="🪵 运行日志",
+            font=(Theme.FONT_FAMILY_BOLD[0], 13),
+            text_color=Theme.COLOR_TEXT_SECONDARY,
+        ).grid(row=0, column=0, sticky="w")
+
+        ctk.CTkButton(
+            header,
+            text="清空",
+            command=self._clear_log,
+            width=60,
+            height=26,
+            corner_radius=Theme.CORNER_RADIUS_S,
+            font=(Theme.FONT_FAMILY_BOLD[0], 12),
+            fg_color=Theme.COLOR_BLUE_BTN,
+            hover_color=Theme.COLOR_BLUE_HOVER,
+        ).grid(row=0, column=1, sticky="e")
+
+        self.log_textbox = ctk.CTkTextbox(
+            log_frame,
+            font=(Theme.FONT_CODE[0], 12),
+            corner_radius=Theme.CORNER_RADIUS_S,
+            fg_color=("gray95", "#1A1A1A"),
+            border_width=0,
+            activate_scrollbars=True,
+            height=140,
+        )
+        self.log_textbox.grid(row=1, column=0, sticky="nsew", padx=Theme.PAD_INNER, pady=(0, Theme.PAD_INNER))
+        self.log_textbox.configure(state="disabled")
+
+    def _append_log(self, msg: str):
+        if not hasattr(self, "log_textbox"):
+            return
+        line = None
+        try:
+            ts = time.strftime("%H:%M:%S", time.localtime())
+            line = f"[{ts}] {msg}\n"
+            self._write_log_line(line)
+        except Exception:
+            line = None
+
+        def apply():
+            try:
+                self.log_textbox.configure(state="normal")
+                self.log_textbox.insert("end", line or (msg + "\n"))
+                # keep view at end
+                self.log_textbox.see("end")
+                self.log_textbox.configure(state="disabled")
+            except Exception:
+                pass
+
+        self.after(0, apply)
+
+    def _clear_log(self):
+        if not hasattr(self, "log_textbox"):
+            return
+        try:
+            self.log_textbox.configure(state="normal")
+            self.log_textbox.delete("0.0", "end")
+            self.log_textbox.configure(state="disabled")
+        except Exception:
+            pass
+
+    def _init_log_file(self) -> str:
+        try:
+            log_dir = os.path.join("output", "logs")
+            os.makedirs(log_dir, exist_ok=True)
+            name = time.strftime("gui_%Y%m%d.log", time.localtime())
+            return os.path.join(log_dir, name)
+        except Exception:
+            return ""
+
+    def _write_log_line(self, line: str):
+        if not self._log_path:
+            return
+        try:
+            with self._log_lock:
+                with open(self._log_path, "a", encoding="utf-8") as f:
+                    f.write(line)
+        except Exception:
+            pass
 
     def _bind_editor_events(self):
         if not hasattr(self, "_text_widget"):
@@ -660,6 +1226,7 @@ class PremiumExamApp(ctk.CTk):
     def flash_status(self, msg):
         """线程安全地更新状态"""
         self.after(0, lambda: self._update_status(msg))
+        self._append_log(msg)
 
     def _update_status(self, msg):
         self.status_label.configure(text=msg)
