@@ -11,6 +11,39 @@ from doclayout_yolo import YOLOv10
 from doclayout_yolo.nn.tasks import YOLOv10DetectionModel
 import dill
 
+# 模型配置
+MODEL_FILENAME = "doclayout_yolo_docstructbench_imgsz1280.pt"
+MODEL_DIR = Path(__file__).parent.parent / "layout_models"
+HF_REPO_ID = "juliozhao/DocLayout-YOLO-DocStructBench"
+
+
+def ensure_model_exists() -> Path:
+    model_path = MODEL_DIR / MODEL_FILENAME
+    
+    if model_path.exists():
+        return model_path
+    
+    print(f"模型文件不存在，尝试从 HuggingFace 下载: {MODEL_FILENAME}")
+    MODEL_DIR.mkdir(parents=True, exist_ok=True)
+    
+    try:
+        from huggingface_hub import hf_hub_download
+        downloaded_path = hf_hub_download(
+            repo_id=HF_REPO_ID,
+            filename=MODEL_FILENAME,
+            local_dir=str(MODEL_DIR),
+        )
+        print(f"模型下载完成: {downloaded_path}")
+        return Path(downloaded_path)
+    except Exception as e:
+        raise RuntimeError(
+            f"无法下载模型文件: {e}\n\n"
+            f"请手动下载模型:\n"
+            f"  1. 访问 https://huggingface.co/{HF_REPO_ID}\n"
+            f"  2. 下载 {MODEL_FILENAME}\n"
+            f"  3. 放到 {MODEL_DIR}/ 目录下"
+        ) from e
+
 # PyTorch 2.6+ defaults to weights_only=True and requires allowlisting custom classes.
 try:
     import torch.serialization
@@ -22,8 +55,7 @@ except Exception:
 class DocLayoutExtractor:
     def __init__(self, model_path: str = None):
         if model_path is None:
-            # 请确保路径正确
-            model_path = r"layout_models/doclayout_yolo_docstructbench_imgsz1280_2501.pt"
+            model_path = str(ensure_model_exists())
         
         self.model = YOLOv10(model_path)
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'

@@ -26,6 +26,9 @@ venvgpu
 # DLLs (PyTorch runtime, users get these from pip install torch)
 dlls/
 
+# Model files (auto-downloaded from HuggingFace)
+layout_models/*.pt
+
 # Misc
 *.zip
 nul
