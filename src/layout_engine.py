@@ -8,6 +8,16 @@ import torch
 import torchvision
 import numpy as np
 from doclayout_yolo import YOLOv10
+from doclayout_yolo.nn.tasks import YOLOv10DetectionModel
+import dill
+
+# PyTorch 2.6+ defaults to weights_only=True and requires allowlisting custom classes.
+try:
+    import torch.serialization
+    torch.serialization.add_safe_globals([YOLOv10DetectionModel, dill._dill._load_type])
+except Exception:
+    # If torch serialization API changes or unavailable, defer to runtime errors.
+    pass
 
 class DocLayoutExtractor:
     def __init__(self, model_path: str = None):

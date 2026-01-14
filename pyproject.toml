@@ -13,7 +13,6 @@ keywords = ["latex", "exam", "math", "ocr", "pdf", "digitizer"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Education",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
@@ -25,13 +24,15 @@ dependencies = [
     "customtkinter>=5.2.2",
     "google-genai",
     "jinja2>=3.1.6",
-    "numpy>=2.0.0",
+    "numpy>=2.0.0,<2.4.0",
     "opencv-python>=4.11.0.86",
     "pillow>=10.0.0",
     "pymupdf>=1.24.0",
     "pyperclip>=1.9.0",
     "rich>=13.0.0",
     "doclayout-yolo>=0.0.2",
+    "huggingface-hub>=0.20.0",
+    "dill>=0.4.0",
 ]
 
 [project.optional-dependencies]

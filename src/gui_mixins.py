@@ -366,14 +366,14 @@ class PdfOcrMixin:
 
             self._set_pdf_ocr_progress(0.3)
             self._set_pdf_ocr_status(
-                f"???? ({total_items}????{len(ocr_indices)}??/{total_items - len(ocr_indices)}?)?Gemini ???..."
+                f"正在识别（共 {total_items} 项，OCR {len(ocr_indices)} 项 / 图像 {total_items - len(ocr_indices)} 项）Gemini 处理中..."
             )
 
             max_workers = 8
             completed = 0
 
             def _ocr_one(seq: int, idx: int):
-                self._set_pdf_ocr_status(f"??? ({seq}/{len(ocr_indices)})...")
+                self._set_pdf_ocr_status(f"正在识别 ({seq}/{len(ocr_indices)})...")
                 item = items[idx]
                 res = call_gemini_ocr(api_key, model_name, item["path"], prompt)
                 return idx, res
@@ -411,7 +411,8 @@ class PdfOcrMixin:
         except Exception as e:
             self._set_pdf_ocr_status(f"错误: {e}")
             self.flash_status(f"❌ 失败: {e}")
-            self.after(0, lambda: messagebox.showerror("出错", str(e)))
+            err_text = str(e)
+            self.after(0, lambda msg=err_text: messagebox.showerror("出错", msg))
         finally:
             self._set_pdf_ocr_controls_enabled(True)
 
