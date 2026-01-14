@@ -1,6 +1,7 @@
-import json
+﻿import json
 import os
 import re
+import shutil
 import subprocess
 from pathlib import Path
 from jinja2 import Environment, FileSystemLoader
@@ -12,6 +13,7 @@ class ExamGenerator:
             "width": r"0.6\textwidth",
             "height": r"0.25\textheight",
         }
+        self._md_image_pattern = re.compile(r"!\[[^\]]*\]\(([^)]+)\)")
 
         template_path = Path(template_file)
         if not template_path.is_absolute():
@@ -27,7 +29,7 @@ class ExamGenerator:
         self._template_path = template_path
         self._template_name = template_path.name
 
-        # 配置 Jinja2 以使用 LaTeX 友好的分隔符
+        # 闁板秶鐤� Jinja2 娴犮儰濞囬悽?LaTeX 閸欏銈介惃鍕瀻闂呮梻顑�
         self.env = Environment(
             loader=FileSystemLoader(str(template_path.parent)),
             variable_start_string='((', 
@@ -39,7 +41,7 @@ class ExamGenerator:
         )
 
     def load_data_from_file(self, filename):
-        """从 JSON 文件读取数据"""
+        """娴�?JSON 閺傚洣娆㈢拠璇插絿閺佺増宓�"""
         try:
             with open(filename, 'r', encoding='utf-8') as f:
                 content = f.read()
@@ -53,7 +55,7 @@ class ExamGenerator:
 
     def process_data(self, json_str):
         """
-        数据清洗管道
+        閺佺増宓佸〒鍛缁狅繝浜�
         """
         try:
             data = json.loads(json_str)
@@ -61,25 +63,25 @@ class ExamGenerator:
             print(f"[error] JSON parse error: {e}")
             return None
 
-        # 遍历所有大题
+        # 闁秴宸婚幍鈧張澶娿亣妫�?
         for section in data.get('sections', []):
-            # 遍历所有小题
+            # 闁秴宸婚幍鈧張澶婄毈妫�?
             for q in section.get('questions', []):
-                # 1. 处理填空题占位符
+                # 1. 婢跺嫮鎮婃繅顐も敄妫版ê宕版担宥囶儊
                 if "__BLANK__" in q.get('content', ''):
-                    # 替换为 \fillin[]，中括号内为空表示自动计算长度
+                    # 閺囨寧宕叉稉?\fillin[]閿涘奔鑵戦幏顒€褰块崘鍛礋缁岄缚銆冪粈楦垮殰閸斻劏顓哥粻妤呮毐鎼�?
                     q['content'] = q['content'].replace("__BLANK__", r"\fillin[]")
                 
-                # 2. 处理选择题选项：去掉 A. B. 等前缀
+                # 2. 婢跺嫮鎮婇柅澶嬪妫版﹢鈧銆嶉敍姘箵閹�?A. B. 缁涘澧犵紓鈧�
                 if 'options' in q:
                     q['options'] = [re.sub(r'^[A-D]\.\s*', '', opt) for opt in q['options']]
                 
-                # 3. (新增) 检查 figure 字段的完整性
-                # 如果 figure 为 null 或 type 不是 tikz，确保模板能安全处理
+                # 3. (閺傛澘顤�) 濡偓閺�?figure 鐎涙顔岄惃鍕暚閺佸瓨鈧�?
+                # 婵″倹鐏� figure 娑�?null 閹�?type 娑撳秵妲� tikz閿涘瞼鈥樻穱婵嚹侀弶鑳厴鐎瑰鍙忔径鍕倞
                 if 'figure' not in q or q['figure'] is None:
                     q['figure'] = None
 
-                # 4. (æ–°å¢ž) image å ä½å¤„ç†ï¼Œç”¨äºŽé¢„ç•™å›¾ç‰‡ä½ç½®
+                # 4. (蹇欓垾鎾€鎳娿儌鈶�? image 姘撹仹鑱界洸闄嗚仹姘撻檱閳ョ伝顬犳劏鈧妴顕峰瘋鎹椦€鈧緵顭嬨仮鍙风煫鈹炩懇鈧伝褉鈧懇鍔夋皳閳ラ儩涔呇€鈧壋鈧埗銇㈤摪宓滎灎閾�?
                 img = q.get("image")
                 if img is None:
                     q["image"] = None
@@ -100,10 +102,84 @@ class ExamGenerator:
 
         return data
 
+
+    def replace_inline_images(self, data, asset_dir: str, *, asset_rel: str = "assets", width: str = r"0.9\linewidth") -> list[str]:
+        if not data:
+            return []
+
+        missing: list[str] = []
+        counter = 0
+        asset_root = Path(asset_dir)
+        asset_root.mkdir(parents=True, exist_ok=True)
+
+        def resolve_source(path_str: str) -> Path | None:
+            raw = path_str.strip().strip("\"").strip("'")
+            if not raw:
+                return None
+            src = Path(raw)
+            if src.exists():
+                return src
+            cwd_candidate = Path.cwd() / raw
+            if cwd_candidate.exists():
+                return cwd_candidate
+            root_candidate = self._template_path.parent.parent / raw
+            if root_candidate.exists():
+                return root_candidate
+            return None
+
+        def copy_to_assets(src_path: str) -> str | None:
+            nonlocal counter
+            src = resolve_source(src_path)
+            if src is None:
+                return None
+            counter += 1
+            ext = src.suffix if src.suffix else ".png"
+            dest_name = f"img-{counter:04d}{ext}"
+            dest = asset_root / dest_name
+            try:
+                shutil.copy2(src, dest)
+            except Exception:
+                return None
+            rel = f"{asset_rel}/{dest_name}"
+            return rel.replace("\\", "/")
+
+        def replace_in_text(text: str) -> str:
+            if not isinstance(text, str):
+                return text
+
+            def repl(match: re.Match) -> str:
+                path_str = match.group(1)
+                rel = copy_to_assets(path_str)
+                if not rel:
+                    missing.append(path_str)
+                    return r"\fbox{Missing image}"
+                return r"\includegraphics[width=" + width + r"]{" + rel + r"}"
+
+            return self._md_image_pattern.sub(repl, text)
+
+        def walk_question(q: dict) -> None:
+            if "content" in q and isinstance(q.get("content"), str):
+                q["content"] = replace_in_text(q["content"])
+            if "options" in q and isinstance(q.get("options"), list):
+                q["options"] = [replace_in_text(opt) if isinstance(opt, str) else opt for opt in q["options"]]
+            if "sub_questions" in q and isinstance(q.get("sub_questions"), list):
+                for sub in q["sub_questions"]:
+                    if isinstance(sub, dict):
+                        walk_question(sub)
+
+        for section in data.get("sections", []):
+            if not isinstance(section, dict):
+                continue
+            for q in section.get("questions", []):
+                if isinstance(q, dict):
+                    walk_question(q)
+
+        return missing
+
     def render(self, data, output_tex='math_exam.tex'):
-        """渲染 LaTeX 模板"""
+        """濞撳弶鐓� LaTeX 濡剝婢�"""
         try:
-            # 确保输出目录存在
+            # 绾喕绻氭潏鎾冲毉閻╊喖缍嶇€涙ê婀�
             output_dir = os.path.dirname(output_tex)
             if output_dir and not os.path.exists(output_dir):
                 os.makedirs(output_dir)
@@ -121,7 +197,7 @@ class ExamGenerator:
             return None
 
     def compile_pdf(self, tex_file, *, passes: int = 2):
-        """调用 xelatex 编译 PDF（默认两次以修复页码/引用）"""
+        """鐠嬪啰鏁� xelatex 缂傛牞鐦� PDF閿涘牓绮拋銈勮⒈濞嗏€蹭簰娣囶喖顦叉い鐢电垳/瀵洜鏁ら敍?"""
         if not tex_file:
             return False
 
@@ -130,7 +206,7 @@ class ExamGenerator:
         output_dir = os.path.dirname(tex_file)
         tex_path = Path(tex_file)
         log_capture_path = (Path(output_dir) if output_dir else tex_path.parent) / f"{tex_path.stem}.xelatex.txt"
-        # 构建命令: xelatex -interaction=nonstopmode -output-directory=DIR FILE
+        # 閺嬪嫬缂撻崨鎴掓姢: xelatex -interaction=nonstopmode -output-directory=DIR FILE
         cmd = ['xelatex', '-interaction=nonstopmode']
         
         if output_dir:
@@ -164,19 +240,20 @@ class ExamGenerator:
 if __name__ == "__main__":
     generator = ExamGenerator()
     
-    # 读取数据
+    # 鐠囪褰囬弫鐗堝祦
     input_file = 'exam_data.json'
-    print(f"🤖 正在读取数据文件: {input_file} ...")
+    print(f"棣冾樆 濮濓絽婀拠璇插絿閺佺増宓侀弬鍥︽: {input_file} ...")
     
     json_content = generator.load_data_from_file(input_file)
     
     if json_content:
         exam_data = generator.process_data(json_content)
         if exam_data:
-            # 输出到 output 文件夹
+            # 鏉堟挸鍤崚?output 閺傚洣娆㈡径?
             output_path = os.path.join('output', 'math_exam.tex')
             tex_filename = generator.render(exam_data, output_path)
             
-            # 编译 PDF
+            # 缂傛牞鐦� PDF
             generator.compile_pdf(tex_filename)
 '''
+

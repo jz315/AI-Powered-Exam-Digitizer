@@ -6,6 +6,7 @@
 
 % 引入 enumitem 以便自定义层级序号 (1) -> (i) -> (a)
 \usepackage{enumitem}
+\usepackage{graphicx}
 
 \begin{document}
 

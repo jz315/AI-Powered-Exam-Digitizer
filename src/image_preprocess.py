@@ -9,21 +9,25 @@ from PIL import Image
 
 
 class _FallbackTheme:
-    FONT_FAMILY_BOLD = ("Segoe UI Semibold", "Arial")
-    FONT_FAMILY = ("Segoe UI", "Arial")
-    COLOR_BG_MAIN = ("#F2F2F7", "#1C1C1E")
-    COLOR_BG_PANEL = ("#FFFFFF", "#2C2C2E")
-    COLOR_TEXT_PRIMARY = ("#000000", "#FFFFFF")
-    COLOR_TEXT_SECONDARY = ("#6E6E73", "#A1A1A6")
-    COLOR_BLUE_BTN = ("#007AFF", "#0A84FF")
-    COLOR_BLUE_HOVER = ("#0062CC", "#0070E0")
-    COLOR_GREEN_BTN = ("#34C759", "#30D158")
-    COLOR_GREEN_HOVER = ("#248A3D", "#28CD41")
-    COLOR_BORDER = ("#E5E5EA", "#3A3A3C")
-    PAD_OUTER = 20
+    FONT_FAMILY_BOLD = (
+        "Bahnschrift SemiBold",
+        "Segoe UI Variable Display Semibold",
+        "Segoe UI Semibold",
+    )
+    FONT_FAMILY = ("Bahnschrift", "Segoe UI Variable Text", "Segoe UI")
+    COLOR_BG_MAIN = ("#F4F0EA", "#121212")
+    COLOR_BG_PANEL = ("#FFFFFF", "#1C1C1C")
+    COLOR_TEXT_PRIMARY = ("#1E1B16", "#F5F5F4")
+    COLOR_TEXT_SECONDARY = ("#6B625A", "#A1A1AA")
+    COLOR_BLUE_BTN = ("#1D4ED8", "#3B82F6")
+    COLOR_BLUE_HOVER = ("#1E40AF", "#2563EB")
+    COLOR_GREEN_BTN = ("#0F766E", "#14B8A6")
+    COLOR_GREEN_HOVER = ("#0B5F59", "#0D9488")
+    COLOR_BORDER = ("#E4DED4", "#2B2B2B")
+    PAD_OUTER = 22
     PAD_INNER = 12
-    CORNER_RADIUS_L = 16
-    CORNER_RADIUS_S = 10
+    CORNER_RADIUS_L = 18
+    CORNER_RADIUS_S = 12
 
 
 class ImagePreprocessTool(ctk.CTkToplevel):

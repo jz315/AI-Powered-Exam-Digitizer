@@ -12,6 +12,7 @@
 - 禁止包含答案或手写痕迹。
 - 禁止保留题目开头的序号（如 "1.", "(1)"），题号由前端处理。
 - 禁止转换/描述图片内容，只能使用 image 占位
+- If input contains `![img](path)`, keep it verbatim in content/options; do not rewrite or convert to image field.
 - 禁止包含`"\\n"`，请写成`"\\newline"`
 
 # 📝 Processing Rules

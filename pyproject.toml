@@ -1,20 +1,57 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
 [project]
-name = "latex-template"
+name = "math-digitizer"
 version = "0.1.0"
-description = "Add your description here"
+description = "智能数学试卷排版工具 - 将 LLM 生成的 JSON 转换为 LaTeX 试卷 PDF"
 readme = "README.md"
 requires-python = ">=3.11"
+license = "MIT"
+keywords = ["latex", "exam", "math", "ocr", "pdf", "digitizer"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Education",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Text Processing :: Markup :: LaTeX",
+]
+
 dependencies = [
     "customtkinter>=5.2.2",
+    "google-genai",
     "jinja2>=3.1.6",
-    "numpy>=2.4.0",
+    "numpy>=2.0.0",
     "opencv-python>=4.11.0.86",
-    "paddleocr<3",
-    "paddlepaddle-gpu==2.6.2; sys_platform == 'win32'",
-    "paddlepaddle>=2.6.0; sys_platform != 'win32'",
-    "pillow>=12.0.0",
+    "pillow>=10.0.0",
     "pymupdf>=1.24.0",
-    "pyperclip>=1.11.0",
-    "rich>=14.2.0",
-    "setuptools>=68.0.0",
+    "pyperclip>=1.9.0",
+    "rich>=13.0.0",
+    "doclayout-yolo>=0.0.2",
 ]
+
+[project.optional-dependencies]
+# torch 需要用户根据自己的环境单独安装（GPU 或 CPU 版本）
+dev = [
+    "pytest>=7.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/jz315/AI-Powered-Exam-Digitizer"
+Repository = "https://github.com/jz315/AI-Powered-Exam-Digitizer"
+Issues = "https://github.com/jz315/AI-Powered-Exam-Digitizer/issues"
+
+[project.scripts]
+math-digitizer = "main:main"
+pdf-layout = "pdf_ocr_cli:main"
+
+[tool.setuptools]
+py-modules = ["main", "pdf_ocr_cli"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]
