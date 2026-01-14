@@ -20,3 +20,12 @@ temp_build/
 
 # Virtual environments
 .venv
+.venv-gpu
+venvgpu
+
+# DLLs (PyTorch runtime, users get these from pip install torch)
+dlls/
+
+# Misc
+*.zip
+nul
