@@ -2,10 +2,15 @@ import argparse
 import sys
 import time
 from pathlib import Path
-from layout_engine import DocLayoutExtractor
+from layout_engine import (
+    DEFAULT_LAYOUT_MODEL,
+    LAYOUT_MODEL_LABELS,
+    create_layout_extractor,
+    layout_model_label_from_key,
+)
 
 def main():
-    parser = argparse.ArgumentParser(description="PDF 版面分析工具 CLI (基于 DocLayout-YOLO)")
+    parser = argparse.ArgumentParser(description="PDF 版面分析工具 CLI")
     
     # 必选参数
     parser.add_argument("pdf_path", help="PDF 文件的路径")
@@ -13,8 +18,15 @@ def main():
     # 可选参数
     parser.add_argument("--out", default="output", help="结果输出目录")
     parser.add_argument("--dpi", type=int, default=200, help="PDF 渲染 DPI (默认 200)")
-    parser.add_argument("--conf", type=float, default=0.25, help="YOLO 置信度阈值 (默认 0.25)")
+    parser.add_argument("--conf", type=float, default=0.25, help="布局模型置信度阈值 (默认 0.25)")
     parser.add_argument("--ignore", default=None, help="要忽略的标签 (逗号分隔)，默认忽略 abandon")
+    parser.add_argument("--pages", default=None, help="页码范围，例如 1-3,5,8")
+    parser.add_argument(
+        "--layout-model",
+        default=DEFAULT_LAYOUT_MODEL,
+        choices=list(LAYOUT_MODEL_LABELS.keys()),
+        help="布局模型: " + ", ".join(LAYOUT_MODEL_LABELS.keys()),
+    )
 
     args = parser.parse_args()
 
@@ -30,13 +42,16 @@ def main():
         ignored_labels = [label.strip() for label in args.ignore.split(",")]
         print(f"设置忽略标签: {ignored_labels}")
     else:
-        print("使用默认忽略列表: ['abandon']")
+        if args.layout_model == "doclayout_yolo":
+            ignored_labels = ["abandon"]
+            print("使用默认忽略列表: ['abandon']")
 
     # 3. 初始化引擎
     t0 = time.time()
-    print(f"正在加载模型:  ...")
+    label = layout_model_label_from_key(args.layout_model)
+    print(f"正在加载布局模型: {label} ...")
     try:
-        extractor = DocLayoutExtractor()
+        extractor = create_layout_extractor(args.layout_model)
     except Exception as e:
         print(f"模型加载失败: {e}")
         sys.exit(1)
@@ -49,7 +64,8 @@ def main():
             output_dir=args.out,
             dpi=args.dpi,
             conf=args.conf,
-            ignored_labels=ignored_labels
+            ignored_labels=ignored_labels,
+            page_range=args.pages
         )
         
         t1 = time.time()

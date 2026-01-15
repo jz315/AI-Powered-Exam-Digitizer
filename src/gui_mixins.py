@@ -19,7 +19,13 @@ import pyperclip
 from gui_deps import ImagePreprocessTool, extract_first_latex_error, validate_json_and_latex
 from gui_ocr import call_gemini_ocr
 from gui_theme import Theme
-from layout_engine import DocLayoutExtractor
+from layout_engine import (
+    DEFAULT_LAYOUT_MODEL,
+    LAYOUT_MODEL_LABELS,
+    create_layout_extractor,
+    layout_model_key_from_label,
+    layout_model_label_from_key,
+)
 
 class UiMixin:
     def setup_header(self):
@@ -84,6 +90,16 @@ class UiMixin:
         if env_key: self.entry_gemini_key.insert(0, env_key)
         self.entry_gemini_key.bind("<FocusOut>", lambda _e: self._save_pdf_ocr_config())
 
+        # 1.1 Modelverse Key (Deepseek OCR)
+        mv_key_frame = ctk.CTkFrame(left_panel, fg_color="transparent")
+        mv_key_frame.pack(fill="x", padx=25, pady=5)
+        ctk.CTkLabel(mv_key_frame, text="Modelverse Key:", width=90, anchor="w").pack(side="left")
+        mv_env_key = os.environ.get("MODELVERSE_API_KEY", "").strip()
+        self.entry_modelverse_key = ctk.CTkEntry(mv_key_frame, placeholder_text="Paste API Key...", show="*")
+        self.entry_modelverse_key.pack(side="left", fill="x", expand=True)
+        if mv_env_key: self.entry_modelverse_key.insert(0, mv_env_key)
+        self.entry_modelverse_key.bind("<FocusOut>", lambda _e: self._save_pdf_ocr_config())
+
         # 2. Model & DPI
         opts_frame = ctk.CTkFrame(left_panel, fg_color="transparent")
         opts_frame.pack(fill="x", padx=25, pady=5)
@@ -95,6 +111,28 @@ class UiMixin:
         self.entry_pdf_dpi.insert(0, "200")
         self.entry_pdf_dpi.pack(side="left")
         ctk.CTkLabel(opts_frame, text="DPI").pack(side="left", padx=5)
+
+        # 2.5 Layout Model
+        layout_frame = ctk.CTkFrame(left_panel, fg_color="transparent")
+        layout_frame.pack(fill="x", padx=25, pady=5)
+        ctk.CTkLabel(layout_frame, text="Layout:", width=90, anchor="w").pack(side="left")
+
+        self.layout_model_var = tk.StringVar(value=layout_model_label_from_key(DEFAULT_LAYOUT_MODEL))
+        layout_labels = list(LAYOUT_MODEL_LABELS.values())
+        self.layout_model_menu = ctk.CTkOptionMenu(
+            layout_frame,
+            values=layout_labels,
+            variable=self.layout_model_var,
+            command=lambda _val: self._save_pdf_ocr_config(),
+        )
+        self.layout_model_menu.pack(side="left", fill="x", expand=True)
+
+        # 2.6 Page Range
+        page_frame = ctk.CTkFrame(left_panel, fg_color="transparent")
+        page_frame.pack(fill="x", padx=25, pady=5)
+        ctk.CTkLabel(page_frame, text="Pages:", width=90, anchor="w").pack(side="left")
+        self.entry_page_range = ctk.CTkEntry(page_frame, placeholder_text="1-3,5,8")
+        self.entry_page_range.pack(side="left", fill="x", expand=True)
 
         # 分割线
         ctk.CTkFrame(left_panel, height=2, fg_color=Theme.COLOR_BORDER).pack(fill="x", padx=20, pady=20)
@@ -287,7 +325,10 @@ class PdfOcrMixin:
             self.btn_select_pdf.configure(state=st)
             self.btn_run_pdf_ocr.configure(state=st)
             self.entry_gemini_key.configure(state=st)
+            self.entry_modelverse_key.configure(state=st)
             self.entry_gemini_model.configure(state=st)
+            self.layout_model_menu.configure(state=st)
+            self.entry_page_range.configure(state=st)
         self.after(0, apply)
 
     def start_pdf_ocr_thread(self):
@@ -314,33 +355,50 @@ class PdfOcrMixin:
         self._set_pdf_ocr_status("正在初始化...")
         self.flash_status("📄 开始处理...")
 
+        page_range = (self.entry_page_range.get() or "").strip()
+
         threading.Thread(
             target=self._run_pdf_ocr,
-            args=(self._pdf_path, api_key, model, dpi),
+            args=(self._pdf_path, api_key, model, dpi, page_range),
             daemon=True,
         ).start()
 
-    def _run_pdf_ocr(self, pdf_path: str, api_key: str, model_name: str, dpi: int):
+    def _run_pdf_ocr(self, pdf_path: str, api_key: str, model_name: str, dpi: int, page_range: str):
         try:
             pdf_path_obj = Path(pdf_path)
             output_root = Path("output") / "pdf_ocr"
             output_dir = output_root / pdf_path_obj.stem
             
-            self._set_pdf_ocr_status("正在加载 YOLO 模型...")
-            if self._layout_extractor is None:
-                try: self._layout_extractor = DocLayoutExtractor()
-                except Exception as e: raise RuntimeError(f"模型初始化失败: {e}")
+            model_label = (self.layout_model_var.get() or "").strip()
+            model_key = layout_model_key_from_label(model_label) or DEFAULT_LAYOUT_MODEL
+            model_label = layout_model_label_from_key(model_key)
 
-            self._set_pdf_ocr_status(f"正在分析 PDF: {pdf_path_obj.name} ...")
+            self._set_pdf_ocr_status(f"正在加载布局模型: {model_label} ...")
+            if model_key not in self._layout_extractors:
+                try:
+                    mv_key = (self.entry_modelverse_key.get() or os.environ.get("MODELVERSE_API_KEY", "")).strip()
+                    if model_key == "deepseek_ocr" and not mv_key:
+                        raise RuntimeError("è¯·å…ˆå¡«å†? Modelverse API Key (Deepseek OCR æ‰€éœ€)")
+                    self._layout_extractors[model_key] = create_layout_extractor(
+                        model_key,
+                        deepseek_api_key=mv_key or None,
+                    )
+                except Exception as e:
+                    raise RuntimeError(f"模型初始化失败: {e}")
+            extractor = self._layout_extractors[model_key]
+
+            range_note = f" (Pages: {page_range})" if page_range else ""
+            self._set_pdf_ocr_status(f"正在分析 PDF: {pdf_path_obj.name}{range_note} ...")
             
-            items = self._layout_extractor.process_pdf(
+            ignored = ["abandon"] if model_key == "doclayout_yolo" else None
+            items = extractor.process_pdf(
                 pdf_path=pdf_path_obj, output_dir=output_root, dpi=dpi, conf=0.25,
-                ignored_labels=["abandon"], return_items=True
+                ignored_labels=ignored, page_range=page_range or None, return_items=True
             )
 
             if not items: raise RuntimeError("?????????")
 
-            figure_labels = {"figure"}
+            figure_labels = getattr(extractor, "figure_labels", {"figure"})
             full_text_list = []
             total_items = len(items)
             prompt = "转文字。与题目无关内容（草稿，手写字）请忽略。特别注意补集符号。不确定的内容不要瞎猜而是插入'【不确定】'到文本里。不要输出解释性话语。"
@@ -433,12 +491,24 @@ class PdfOcrMixin:
             with open(self._config_path, "r") as f: data = json.load(f)
             if k := data.get("gemini_key"): 
                 self.entry_gemini_key.delete(0, "end"); self.entry_gemini_key.insert(0, k)
+            if mvk := data.get("modelverse_key"):
+                self.entry_modelverse_key.delete(0, "end"); self.entry_modelverse_key.insert(0, mvk)
+            if model_key := data.get("layout_model"):
+                label = layout_model_label_from_key(model_key)
+                if label in LAYOUT_MODEL_LABELS.values():
+                    self.layout_model_var.set(label)
         except: pass
 
     def _save_pdf_ocr_config(self):
         try:
+            model_label = (self.layout_model_var.get() or "").strip()
+            model_key = layout_model_key_from_label(model_label) or DEFAULT_LAYOUT_MODEL
             with open(self._config_path, "w") as f:
-                json.dump({"gemini_key": self.entry_gemini_key.get().strip()}, f)
+                json.dump({
+                    "gemini_key": self.entry_gemini_key.get().strip(),
+                    "modelverse_key": self.entry_modelverse_key.get().strip(),
+                    "layout_model": model_key,
+                }, f)
         except: pass
 
 class EditorMixin:

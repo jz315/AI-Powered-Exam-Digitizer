@@ -38,7 +38,7 @@ class PremiumExamApp(ctk.CTk, UiMixin, PdfOcrMixin, EditorMixin, LogMixin, Gener
         self._config_path = os.path.join(os.path.expanduser("~"), ".latex_template_gui.json")
         self._log_lock = threading.Lock()
         self._log_path = self._init_log_file()
-        self._layout_extractor = None 
+        self._layout_extractors = {}
 
         # === 界面初始化 ===
         self.setup_header()       # 顶部标题栏

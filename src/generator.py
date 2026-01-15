@@ -1,10 +1,12 @@
-﻿import json
+import json
 import os
 import re
 import shutil
 import subprocess
 from pathlib import Path
 from jinja2 import Environment, FileSystemLoader
+
+from app_paths import get_resource_path
 
 class ExamGenerator:
     def __init__(self, template_file='exam_template.txt'):
@@ -18,13 +20,13 @@ class ExamGenerator:
         template_path = Path(template_file)
         if not template_path.is_absolute():
             cwd_candidate = Path.cwd() / template_path
-            root_candidate = Path(__file__).resolve().parent.parent / template_path
+            resource_candidate = get_resource_path("src") / template_path
             if cwd_candidate.exists():
                 template_path = cwd_candidate
-            elif root_candidate.exists():
-                template_path = root_candidate
+            elif resource_candidate.exists():
+                template_path = resource_candidate
             else:
-                template_path = root_candidate
+                template_path = resource_candidate
 
         self._template_path = template_path
         self._template_name = template_path.name

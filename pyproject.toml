@@ -33,12 +33,19 @@ dependencies = [
     "doclayout-yolo>=0.0.2",
     "huggingface-hub>=0.20.0",
     "dill>=0.4.0",
+    "gradio>=6.3.0",
+    "openai>=1.0.0",
 ]
 
 [project.optional-dependencies]
 # torch 需要用户根据自己的环境单独安装（GPU 或 CPU 版本）
 dev = [
     "pytest>=7.0.0",
+    "pyinstaller>=6.0.0",
+]
+layout_pp = [
+    "paddlepaddle",
+    "paddleocr",
 ]
 
 [project.urls]

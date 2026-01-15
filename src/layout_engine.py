@@ -1,6 +1,9 @@
 import os
+import base64
+import io
+import re
 from pathlib import Path
-from typing import List, Union, Optional
+from typing import List, Union, Optional, Tuple
 
 import fitz  # PyMuPDF
 from PIL import Image
@@ -11,10 +14,19 @@ from doclayout_yolo import YOLOv10
 from doclayout_yolo.nn.tasks import YOLOv10DetectionModel
 import dill
 
-# 模型配置
-MODEL_FILENAME = "doclayout_yolo_docstructbench_imgsz1280.pt"
-MODEL_DIR = Path(__file__).parent.parent / "layout_models"
-HF_REPO_ID = "juliozhao/DocLayout-YOLO-DocStructBench"
+# 假设 app_paths 是你项目中的模块
+from app_paths import get_resource_path
+
+DEFAULT_LAYOUT_MODEL = "doclayout_yolo"
+LAYOUT_MODEL_LABELS = {
+    "doclayout_yolo": "DocLayout-YOLO (DocStructBench 1280)",
+    "pp_doclayout_plus_l": "PP-DocLayout_plus-L (PaddleOCR)",
+    "deepseek_ocr": "Deepseek OCR (Layout Only)",
+}
+
+MODEL_FILENAME = "doclayout_yolo_docstructbench_imgsz1280_2501.pt"
+MODEL_DIR = get_resource_path("layout_models")
+HF_REPO_ID = "juliozhao/DocLayout-YOLO-DocStructBench-imgsz1280-2501"
 
 
 def ensure_model_exists() -> Path:
@@ -44,13 +56,72 @@ def ensure_model_exists() -> Path:
             f"  3. 放到 {MODEL_DIR}/ 目录下"
         ) from e
 
-# PyTorch 2.6+ defaults to weights_only=True and requires allowlisting custom classes.
+# PyTorch 2.6+ 安全序列化设置
 try:
     import torch.serialization
     torch.serialization.add_safe_globals([YOLOv10DetectionModel, dill._dill._load_type])
 except Exception:
-    # If torch serialization API changes or unavailable, defer to runtime errors.
     pass
+
+def layout_model_label_from_key(key: str) -> str:
+    return LAYOUT_MODEL_LABELS.get(key, key)
+
+
+def layout_model_key_from_label(label: str) -> str:
+    for key, value in LAYOUT_MODEL_LABELS.items():
+        if value == label:
+            return key
+    return label
+
+
+def create_layout_extractor(
+    model_key: str,
+    deepseek_api_key: Optional[str] = None,
+    deepseek_base_url: Optional[str] = None,
+    deepseek_model: Optional[str] = None,
+):
+    if model_key == "pp_doclayout_plus_l":
+        return PPDocLayoutPlusExtractor()
+    if model_key == "deepseek_ocr":
+        kwargs = {}
+        if deepseek_api_key:
+            kwargs["api_key"] = deepseek_api_key
+        if deepseek_base_url:
+            kwargs["base_url"] = deepseek_base_url
+        if deepseek_model:
+            kwargs["model"] = deepseek_model
+        return DeepseekOcrLayoutExtractor(**kwargs)
+    return DocLayoutExtractor()
+
+
+def parse_page_range(page_range: str, max_pages: int) -> list[int]:
+    if not page_range:
+        return list(range(max_pages))
+    page_range = page_range.replace(" ", "")
+    if not page_range:
+        return list(range(max_pages))
+
+    pages: set[int] = set()
+    parts = [p for p in page_range.split(",") if p]
+    for part in parts:
+        if "-" in part:
+            left, right = part.split("-", 1)
+            start = int(left) if left else 1
+            end = int(right) if right else max_pages
+        else:
+            start = end = int(part)
+
+        if start < 1:
+            start = 1
+        if end > max_pages:
+            end = max_pages
+        if end < start:
+            continue
+        for p in range(start, end + 1):
+            pages.add(p - 1)
+
+    return sorted(pages)
+
 
 class DocLayoutExtractor:
     def __init__(self, model_path: str = None):
@@ -59,21 +130,69 @@ class DocLayoutExtractor:
         
         self.model = YOLOv10(model_path)
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        self.figure_labels = {"figure"}
+
+    def check_and_pad(self, img: Image.Image, check_ratio: float = 0.01, min_pad: int = 50, threshold: int = 250) -> Tuple[Image.Image, int]:
+        """
+        智能检测边缘并添加白边。
+        
+        Args:
+            img: PIL Image 对象
+            check_ratio: 检查边缘宽度的比例 (默认 1%，即 0.01)
+            min_pad: 最小添加的 Padding 像素值 (默认 50)
+            threshold: 像素亮度阈值 (小于此值视为有内容，0-255)
+            
+        Returns:
+            (处理后的图片, 添加的padding大小)
+        """
+        # 转换为灰度图的 numpy 数组进行快速计算
+        img_gray = img.convert("L")
+        img_arr = np.array(img_gray)
+        h, w = img_arr.shape
+
+        # 1. 计算检查区域的宽度 (按比例，且至少检查 5 个像素)
+        margin_w = max(5, int(w * check_ratio))
+        margin_h = max(5, int(h * check_ratio))
+
+        # 2. 切片获取四个边缘区域
+        top_edge = img_arr[0:margin_h, :]
+        bottom_edge = img_arr[h-margin_h:h, :]
+        left_edge = img_arr[:, 0:margin_w]
+        right_edge = img_arr[:, w-margin_w:w]
+
+        # 3. 检查是否有内容 (像素值 < 250)
+        has_content_at_edge = (
+            np.any(top_edge < threshold) or
+            np.any(bottom_edge < threshold) or
+            np.any(left_edge < threshold) or
+            np.any(right_edge < threshold)
+        )
+
+        if has_content_at_edge:
+            # 4. 计算需要添加的 Padding 大小
+            # 策略：取长边的 5% 作为 Padding，但至少 min_pad (50px)
+            # 这样大图加得多，小图加得少，但保证足够模型看清
+            dynamic_pad = max(min_pad, int(max(w, h) * 0.1))
+            
+            # 5. 创建新画布并粘贴原图
+            new_w = w + 2 * dynamic_pad
+            new_h = h + 2 * dynamic_pad
+            new_img = Image.new(img.mode, (new_w, new_h), (255, 255, 255))
+            new_img.paste(img, (dynamic_pad, dynamic_pad))
+            
+            return new_img, dynamic_pad
+        
+        return img, 0
 
     def resolve_containment(self, boxes, scores, classes, iou_threshold=0.1):
         """
         处理包含关系：如果一个框被另一个框完全包含（或包含比例很高），
         则根据置信度保留分高的那个。
-        
-        解决了 NMS 无法过滤“大框套小框”的问题。
         """
         if len(boxes) == 0:
             return []
 
-        # 计算所有框的面积
         areas = (boxes[:, 2] - boxes[:, 0]) * (boxes[:, 3] - boxes[:, 1])
-        
-        # 按置信度从高到低排序的索引
         order = scores.argsort()[::-1]
         keep = []
 
@@ -81,13 +200,9 @@ class DocLayoutExtractor:
             i = order[0]
             keep.append(i)
             
-            # 这种暴力循环虽然在Python里慢，但因为通常页面框不多（几十个），速度完全可以接受
-            # 这里的逻辑是：拿当前最高分的框 i，去和剩余所有框比较
-            
             if order.size == 1:
                 break
             
-            # 获取剩余的框
             rest_indices = order[1:]
             xx1 = np.maximum(boxes[i, 0], boxes[rest_indices, 0])
             yy1 = np.maximum(boxes[i, 1], boxes[rest_indices, 1])
@@ -98,21 +213,15 @@ class DocLayoutExtractor:
             h = np.maximum(0.0, yy2 - yy1)
             inter = w * h
 
-            # 关键点：这里计算的是 "交叉面积 / 较小框的面积" (Intersection over Smaller)
-            # 如果这个值接近 1，说明较小的框被较大的框包含了（或者反之）
-            # 我们拿剩余框的面积来做分母
             rest_areas = areas[rest_indices]
             
-            # 计算包含率：交集 / 剩余框自身的面积
-            # 如果 > 0.8 (即80%的区域都在当前高分框i里面)，则认为是重复/包含，需要剔除
+            # 包含率：交集 / 剩余框自身的面积
             containment_ratio = inter / (rest_areas + 1e-6)
             
-            # 同时我们也做标准的 IoU 检查，双重保险
             union = areas[i] + rest_areas - inter
             iou = inter / (union + 1e-6)
 
-            # 标记需要保留的框（即：既不是由于包含关系，也不是由于高IoU重叠）
-            # 我们剔除掉：(包含率 > 0.9) 或者 (IoU > iou_threshold) 的框
+            # 剔除掉：(包含率 > 0.9) 或者 (IoU > iou_threshold) 的框
             mask = (containment_ratio < 0.90) & (iou < iou_threshold)
             
             order = order[1:][mask]
@@ -125,8 +234,9 @@ class DocLayoutExtractor:
         output_dir: Union[str, Path], 
         dpi: int = 200, 
         conf: float = 0.25,
-        iou: float = 0.45,  # 传递给 torchvision.ops.nms
+        iou: float = 0.45,
         ignored_labels: Optional[List[str]] = None,
+        page_range: Optional[str] = None,
         return_items: bool = False
     ) -> List[str]:
         
@@ -151,32 +261,44 @@ class DocLayoutExtractor:
         for page_idx, page in enumerate(doc):
             pix = page.get_pixmap(dpi=dpi)
             img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+            original_w, original_h = img.width, img.height
+
+            # --- 步骤 0: 智能加白边 (按比例检测) ---
+            # check_ratio=0.01 表示检查边缘 1% 的区域
+            # min_pad=50 表示最少加 50px，如果图很大，会加更多(5%)
+            img_input, pad_offset = self.check_and_pad(img, check_ratio=0.1, min_pad=50, threshold=250)
 
             # --- 步骤 1: 模型预测 ---
-            results = self.model.predict(img, conf=conf, imgsz=1280, device=self.device, verbose=False)[0]
+            results = self.model.predict(img_input, conf=conf, imgsz=1280, device=self.device, verbose=False)[0]
 
             boxes = results.boxes.xyxy
             scores = results.boxes.conf
             classes = results.boxes.cls
 
-            # --- 步骤 2: 初步 NMS (解决完全重叠) ---
-            # 使用 torchvision 的 NMS 快速过滤高度重叠的框
+            # --- 步骤 1.5: 坐标还原 ---
+            if pad_offset > 0:
+                # 减去 padding
+                boxes[:, [0, 2]] -= pad_offset
+                boxes[:, [1, 3]] -= pad_offset
+                
+                # 边界截断 (防止越界)
+                boxes[:, 0] = boxes[:, 0].clamp(min=0)
+                boxes[:, 1] = boxes[:, 1].clamp(min=0)
+                boxes[:, 2] = boxes[:, 2].clamp(max=original_w)
+                boxes[:, 3] = boxes[:, 3].clamp(max=original_h)
+
+            # --- 步骤 2: 初步 NMS ---
             nms_indices = torchvision.ops.nms(boxes, scores, iou_threshold=iou)
             
-            # 获取 NMS 后的结果
             final_boxes = boxes[nms_indices].cpu().numpy()
             final_scores = scores[nms_indices].cpu().numpy()
             final_classes = classes[nms_indices].cpu().numpy()
 
-            # --- 步骤 3: 包含关系过滤 (解决大框套小框) ---
-            # 这是为了解决你图中出现的“大段落框包含小行框”的问题
-            # 我们传入 NMS 筛选后的框进行二次清洗
+            # --- 步骤 3: 包含关系过滤 ---
             keep_indices = self.resolve_containment(final_boxes, final_scores, final_classes, iou_threshold=iou)
             
-            # 二次过滤
             final_boxes = final_boxes[keep_indices]
             final_classes = final_classes[keep_indices]
-            # final_scores = final_scores[keep_indices] # 不需要了
 
             final_boxes = final_boxes.astype(int)
             final_classes = final_classes.astype(int)
@@ -201,7 +323,6 @@ class DocLayoutExtractor:
                 })
 
             # --- 步骤 5: 排序 ---
-            # 按垂直位置排序，如果垂直位置相近(10像素内)则按水平位置排
             valid_items.sort(key=lambda item: (item["y1"] // 10, item["x1"]))
 
             # --- 步骤 6: 裁剪并保存 ---
@@ -209,11 +330,10 @@ class DocLayoutExtractor:
                 label = item["label"]
                 xyxy = item["xyxy"]
                 
-                # 安全检查，防止坐标越界
                 x1 = max(0, xyxy[0])
                 y1 = max(0, xyxy[1])
-                x2 = min(img.width, xyxy[2])
-                y2 = min(img.height, xyxy[3])
+                x2 = min(original_w, xyxy[2])
+                y2 = min(original_h, xyxy[3])
                 
                 if x2 <= x1 or y2 <= y1:
                     continue
@@ -223,6 +343,319 @@ class DocLayoutExtractor:
                 filename = f"p{page_idx+1:03d}_{i:03d}_{label}.png"
                 file_path = save_dir / filename
                 
+                crop.save(file_path)
+                file_str = str(file_path)
+                saved_files.append(file_str)
+                saved_items.append({
+                    "label": label,
+                    "path": file_str,
+                    "page": page_idx + 1,
+                    "index": i,
+                    "xyxy": [x1, y1, x2, y2],
+                })
+
+        doc.close()
+        if return_items:
+            return saved_items
+        return saved_files
+
+
+class PPDocLayoutPlusExtractor:
+    def __init__(self):
+        try:
+            from paddleocr import LayoutDetection
+        except Exception as e:
+            raise RuntimeError(
+                "PaddleOCR 未安装，无法使用 PP-DocLayout_plus-L。\n"
+                "请先安装 paddlepaddle + paddleocr。"
+            ) from e
+
+        self.model = LayoutDetection(model_name="PP-DocLayout_plus-L")
+        self.figure_labels = {"image", "table", "chart", "figure_table", "seal", "figure"}
+
+    def _iter_results(self, output):
+        for res in output:
+            if hasattr(res, "res"):
+                data = res.res
+            else:
+                data = res
+            if isinstance(data, dict) and "res" in data:
+                data = data.get("res")
+            yield data
+
+    def process_pdf(
+        self,
+        pdf_path: Union[str, Path],
+        output_dir: Union[str, Path],
+        dpi: int = 200,
+        conf: float = 0.25,
+        ignored_labels: Optional[List[str]] = None,
+        page_range: Optional[str] = None,
+        return_items: bool = False,
+    ) -> List[str]:
+        if ignored_labels is None:
+            ignored_labels = []
+
+        pdf_path = Path(pdf_path)
+        if not pdf_path.exists():
+            raise FileNotFoundError(f"PDF文件不存在: {pdf_path}")
+
+        save_dir = Path(output_dir) / pdf_path.stem
+        save_dir.mkdir(parents=True, exist_ok=True)
+
+        saved_files = []
+        saved_items = []
+
+        try:
+            doc = fitz.open(pdf_path)
+        except Exception as e:
+            raise RuntimeError(f"无法打开 PDF 文件: {e}")
+
+        selected_pages = set(parse_page_range(page_range, doc.page_count))
+        for page_idx, page in enumerate(doc):
+            if page_idx not in selected_pages:
+                continue
+            pix = page.get_pixmap(dpi=dpi)
+            img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+            np_img = np.array(img)
+
+            output = self.model.predict(np_img, batch_size=1, layout_nms=True)
+            boxes = []
+
+            for data in self._iter_results(output):
+                if not isinstance(data, dict):
+                    continue
+                for item in data.get("boxes", []):
+                    label = item.get("label")
+                    score = float(item.get("score", 0))
+                    if score < conf:
+                        continue
+                    coord = item.get("coordinate") or item.get("bbox")
+                    if not coord or len(coord) != 4:
+                        continue
+                    x1, y1, x2, y2 = coord
+                    boxes.append({
+                        "label": label,
+                        "xyxy": [int(x1), int(y1), int(x2), int(y2)],
+                        "y1": int(y1),
+                        "x1": int(x1),
+                    })
+
+            valid_items = [b for b in boxes if b["label"] not in ignored_labels]
+            valid_items.sort(key=lambda item: (item["y1"] // 10, item["x1"]))
+
+            for i, item in enumerate(valid_items):
+                label = item["label"]
+                xyxy = item["xyxy"]
+
+                x1 = max(0, xyxy[0])
+                y1 = max(0, xyxy[1])
+                x2 = min(img.width, xyxy[2])
+                y2 = min(img.height, xyxy[3])
+
+                if x2 <= x1 or y2 <= y1:
+                    continue
+
+                crop = img.crop((x1, y1, x2, y2))
+                filename = f"p{page_idx+1:03d}_{i:03d}_{label}.png"
+                file_path = save_dir / filename
+                crop.save(file_path)
+                file_str = str(file_path)
+                saved_files.append(file_str)
+                saved_items.append({
+                    "label": label,
+                    "path": file_str,
+                    "page": page_idx + 1,
+                    "index": i,
+                    "xyxy": [x1, y1, x2, y2],
+                })
+
+        doc.close()
+        if return_items:
+            return saved_items
+        return saved_files
+
+
+class DeepseekOcrLayoutExtractor:
+    def __init__(
+        self,
+        api_key: Optional[str] = None,
+        base_url: str = "https://api.modelverse.cn/v1/",
+        model: str = "deepseek-ai/DeepSeek-OCR",
+    ):
+        try:
+            from openai import OpenAI
+        except Exception as e:
+            raise RuntimeError(
+                "openai SDK 未安装，无法使用 Deepseek OCR。\n"
+                "请先安装 openai 包（例如: pip install openai）。"
+            ) from e
+
+        api_key = api_key or os.getenv("MODELVERSE_API_KEY", "").strip()
+        if not api_key:
+            raise RuntimeError("缺少 MODELVERSE_API_KEY，无法调用 Deepseek OCR。")
+
+        self._client = OpenAI(api_key=api_key, base_url=base_url)
+        self._model = model
+        self.figure_labels = set()
+
+    def _encode_image(self, img: Image.Image) -> str:
+        rgb = img.convert("RGB")
+        buffer = io.BytesIO()
+        rgb.save(buffer, format="JPEG", quality=90)
+        return base64.b64encode(buffer.getvalue()).decode("utf-8")
+
+    def _parse_layout(self, content: str):
+        if not content:
+            return []
+        pattern = re.compile(
+            r"<\|ref\|>\s*(?P<label>.*?)\s*<\|/ref\|>\s*"
+            r"<\|det\|>\s*\[\[\s*"
+            r"(?P<x1>-?\d+(?:\.\d+)?)\s*,\s*"
+            r"(?P<y1>-?\d+(?:\.\d+)?)\s*,\s*"
+            r"(?P<x2>-?\d+(?:\.\d+)?)\s*,\s*"
+            r"(?P<y2>-?\d+(?:\.\d+)?)\s*\]\]\s*<\|/det\|>",
+            re.S,
+        )
+        items = []
+        for match in pattern.finditer(content):
+            label = (match.group("label") or "text").strip()
+            x1 = int(float(match.group("x1")))
+            y1 = int(float(match.group("y1")))
+            x2 = int(float(match.group("x2")))
+            y2 = int(float(match.group("y2")))
+            if x2 <= x1 or y2 <= y1:
+                continue
+            items.append({"label": label, "xyxy": [x1, y1, x2, y2]})
+        return items
+
+    def _detect_layout(self, img: Image.Image) -> list[dict]:
+        base64_image = self._encode_image(img)
+        prompt = (
+            "Detect layout only. Return detection tags like "
+            "<|ref|>label<|/ref|><|det|>[[x1, y1, x2, y2]]<|/det|>. "
+            "Do not convert to markdown and do not output extra text."
+        )
+        response = self._client.chat.completions.create(
+            model=self._model,
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": prompt},
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"},
+                        },
+                    ],
+                }
+            ],
+        )
+        content = response.choices[0].message.content or ""
+        return self._parse_layout(content)
+
+    def _scale_boxes_if_needed(self, items: list[dict], img_w: int, img_h: int) -> list[dict]:
+        if not items:
+            return items
+        max_coord = 0
+        for it in items:
+            x1, y1, x2, y2 = it.get("xyxy", [0, 0, 0, 0])
+            max_coord = max(max_coord, x1, y1, x2, y2)
+
+        max_dim = max(img_w, img_h)
+        # Heuristic: DeepSeek OCR often returns normalized coords in [0, 1000].
+        # If all coords are <= 1000 and the image is larger, scale to pixel space.
+        should_scale = False
+        if max_coord <= 1000:
+            if max_dim > 1000:
+                should_scale = True
+            elif max_coord > max_dim:
+                should_scale = True
+
+        if not should_scale:
+            return items
+
+        w_scale = img_w / 1000.0
+        h_scale = img_h / 1000.0
+        scaled = []
+        for it in items:
+            x1, y1, x2, y2 = it.get("xyxy", [0, 0, 0, 0])
+            sx1 = int(x1 * w_scale)
+            sy1 = int(y1 * h_scale)
+            sx2 = int(x2 * w_scale)
+            sy2 = int(y2 * h_scale)
+            new_it = dict(it)
+            new_it["xyxy"] = [sx1, sy1, sx2, sy2]
+            scaled.append(new_it)
+        return scaled
+
+    def process_pdf(
+        self,
+        pdf_path: Union[str, Path],
+        output_dir: Union[str, Path],
+        dpi: int = 200,
+        conf: float = 0.0,
+        ignored_labels: Optional[List[str]] = None,
+        page_range: Optional[str] = None,
+        return_items: bool = False,
+    ) -> List[str]:
+        if ignored_labels is None:
+            ignored_labels = []
+
+        pdf_path = Path(pdf_path)
+        if not pdf_path.exists():
+            raise FileNotFoundError(f"PDF文件不存在: {pdf_path}")
+
+        save_dir = Path(output_dir) / pdf_path.stem
+        save_dir.mkdir(parents=True, exist_ok=True)
+
+        saved_files = []
+        saved_items = []
+
+        try:
+            doc = fitz.open(pdf_path)
+        except Exception as e:
+            raise RuntimeError(f"无法打开 PDF 文件: {e}")
+
+        selected_pages = set(parse_page_range(page_range, doc.page_count))
+        for page_idx, page in enumerate(doc):
+            if page_idx not in selected_pages:
+                continue
+            pix = page.get_pixmap(dpi=dpi)
+            img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+
+            detected = self._detect_layout(img)
+            detected = self._scale_boxes_if_needed(detected, img.width, img.height)
+            valid_items = []
+            for item in detected:
+                label = item.get("label") or "text"
+                if label in ignored_labels:
+                    continue
+                x1, y1, x2, y2 = item.get("xyxy", [0, 0, 0, 0])
+                valid_items.append({
+                    "label": label,
+                    "xyxy": [int(x1), int(y1), int(x2), int(y2)],
+                    "y1": int(y1),
+                    "x1": int(x1),
+                })
+
+            valid_items.sort(key=lambda item: (item["y1"] // 10, item["x1"]))
+
+            for i, item in enumerate(valid_items):
+                label = item["label"]
+                xyxy = item["xyxy"]
+
+                x1 = max(0, xyxy[0])
+                y1 = max(0, xyxy[1])
+                x2 = min(img.width, xyxy[2])
+                y2 = min(img.height, xyxy[3])
+
+                if x2 <= x1 or y2 <= y1:
+                    continue
+
+                crop = img.crop((x1, y1, x2, y2))
+                filename = f"p{page_idx+1:03d}_{i:03d}_{label}.png"
+                file_path = save_dir / filename
                 crop.save(file_path)
                 file_str = str(file_path)
                 saved_files.append(file_str)

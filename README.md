@@ -7,7 +7,7 @@
 - **智能化流程**：配合 LLM (如 Claude, ChatGPT, Gemini) 将题目文本/图片转换为结构化数据
 - **自动化排版**：基于 `exam-zh` 试卷模板，自动生成专业的数学试卷布局
 - **现代 GUI**：使用 CustomTkinter 构建的现代化图形界面，支持深色/浅色模式
-- **PDF 版面分析**：基于 DocLayout-YOLO 的智能文档布局识别
+- **PDF 版面分析**：支持 DocLayout-YOLO 与 PP-DocLayout_plus-L 两种布局模型
 - **一键编译**：内置 XeLaTeX 编译流程，直接输出最终 PDF
 
 ---
@@ -19,6 +19,7 @@
 | **Python** | 3.11 或更高版本 |
 | **LaTeX** | TeX Live 或 MiKTeX (需包含 `xelatex` 命令并添加到 PATH) |
 | **PyTorch** | 2.0+ (GPU 版本需要 CUDA 11.8/12.1) |
+| **PaddleOCR (可选)** | 需要使用 PP-DocLayout_plus-L 时安装 |
 
 ---
 
@@ -294,7 +295,7 @@ pdf-layout your_file.pdf --out output --dpi 200
 │   ├── gui.py           # 图形界面实现
 │   ├── generator.py     # LaTeX 生成与编译核心逻辑
 │   ├── validator.py     # JSON 数据校验
-│   ├── layout_engine.py # DocLayout-YOLO 版面分析引擎
+│   ├── layout_engine.py # DocLayout-YOLO/PP-DocLayout_plus-L 版面分析引擎
 │   ├── exam_template.txt # Jinja2 LaTeX 模板
 │   └── prompt.md        # LLM 提示词
 ├── layout_models/       # YOLO 模型文件
