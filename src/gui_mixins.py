@@ -27,6 +27,71 @@ from layout_engine import (
     layout_model_label_from_key,
 )
 
+
+class CollapsibleFrame(ctk.CTkFrame):
+    """可折叠面板组件 - 用于隐藏高级设置"""
+
+    def __init__(
+        self,
+        parent,
+        title: str = "高级设置",
+        expanded: bool = False,
+        **kwargs,
+    ):
+        super().__init__(parent, fg_color="transparent", **kwargs)
+        self._expanded = expanded
+
+        self._header = ctk.CTkFrame(self, fg_color="transparent", cursor="hand2")
+        self._header.pack(fill="x")
+
+        self._arrow = ctk.CTkLabel(
+            self._header,
+            text="▶" if not expanded else "▼",
+            width=20,
+            font=(Theme.FONT_FAMILY[0], 12),
+            text_color=Theme.COLOR_TEXT_SECONDARY,
+        )
+        self._arrow.pack(side="left", padx=(0, 5))
+
+        self._title_label = ctk.CTkLabel(
+            self._header,
+            text=title,
+            font=(Theme.FONT_FAMILY[0], 13),
+            text_color=Theme.COLOR_TEXT_SECONDARY,
+        )
+        self._title_label.pack(side="left")
+
+        self._content = ctk.CTkFrame(self, fg_color="transparent")
+        if expanded:
+            self._content.pack(fill="x", pady=(8, 0))
+
+        self._header.bind("<Button-1>", self._toggle)
+        self._arrow.bind("<Button-1>", self._toggle)
+        self._title_label.bind("<Button-1>", self._toggle)
+
+    @property
+    def content(self) -> ctk.CTkFrame:
+        """返回内容区域供外部添加控件"""
+        return self._content
+
+    def _toggle(self, event=None):
+        self._expanded = not self._expanded
+        if self._expanded:
+            self._arrow.configure(text="▼")
+            self._content.pack(fill="x", pady=(8, 0))
+        else:
+            self._arrow.configure(text="▶")
+            self._content.pack_forget()
+
+    def expand(self):
+        if not self._expanded:
+            self._toggle()
+
+    def collapse(self):
+        if self._expanded:
+            self._toggle()
+
+
 class UiMixin:
     def setup_header(self):
         """顶部状态栏"""
@@ -39,9 +104,31 @@ class UiMixin:
         ctk.CTkLabel(title_box, text="📐 数学试卷数字化工具", font=(Theme.FONT_FAMILY_BOLD[0], 20), text_color=Theme.COLOR_TEXT_PRIMARY).pack(side="left")
         ctk.CTkLabel(title_box, text=" v2.0", font=(Theme.FONT_FAMILY[0], 12), text_color=Theme.COLOR_TEXT_SECONDARY).pack(side="left", pady=(8,0))
 
+        # GPU/CPU 指示器
+        gpu_available, gpu_info = self._detect_gpu()
+        gpu_text = f"🚀 {gpu_info}" if gpu_available else "💻 CPU"
+        gpu_color = "#22c55e" if gpu_available else Theme.COLOR_TEXT_SECONDARY
+        self.gpu_label = ctk.CTkLabel(
+            header_frame, text=gpu_text,
+            font=(Theme.FONT_FAMILY[0], 12),
+            text_color=gpu_color
+        )
+        self.gpu_label.pack(side="right", padx=(10, 0))
+
         # 状态指示器
         self.status_label = ctk.CTkLabel(header_frame, text="Ready", font=(Theme.FONT_FAMILY[0], 13), text_color=Theme.COLOR_TEXT_SECONDARY)
         self.status_label.pack(side="right")
+
+    def _detect_gpu(self):
+        try:
+            import torch
+            if torch.cuda.is_available():
+                name = torch.cuda.get_device_name(0)
+                name = name.strip() if isinstance(name, str) else "GPU"
+                return True, f"GPU {name}"
+        except Exception:
+            pass
+        return False, "CPU"
 
     def setup_main_tabs(self):
         """主要的三段式工作流布局"""
@@ -66,57 +153,33 @@ class UiMixin:
         self._init_export_tab_ui()
 
     def _init_ocr_tab_ui(self):
-        """Tab 1: OCR 相关控件"""
-        # 使用两列布局：左侧控制，右侧说明/日志
         container = ctk.CTkFrame(self.tab_ocr, fg_color="transparent")
         container.pack(fill="both", expand=True, padx=10, pady=10)
         container.grid_columnconfigure(0, weight=2)
         container.grid_columnconfigure(1, weight=3)
         container.grid_rowconfigure(0, weight=1)
 
-        # 左侧：控制面板
         left_panel = ctk.CTkFrame(container, fg_color=Theme.COLOR_BG_PANEL, corner_radius=Theme.CORNER_RADIUS_L)
         left_panel.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
+
+        scroll_frame = ctk.CTkScrollableFrame(left_panel, fg_color="transparent")
+        scroll_frame.pack(fill="both", expand=True, padx=5, pady=5)
         
-        ctk.CTkLabel(left_panel, text="🛠️配置与运行", font=(Theme.FONT_FAMILY_BOLD[0], 16)).pack(anchor="w", padx=20, pady=(20, 15))
+        ctk.CTkLabel(scroll_frame, text="🛠️ 基础配置", font=(Theme.FONT_FAMILY_BOLD[0], 16)).pack(anchor="w", padx=15, pady=(15, 10))
         
-        # 1. API Key
-        key_frame = ctk.CTkFrame(left_panel, fg_color="transparent")
-        key_frame.pack(fill="x", padx=25, pady=5)
+        key_frame = ctk.CTkFrame(scroll_frame, fg_color="transparent")
+        key_frame.pack(fill="x", padx=20, pady=5)
         ctk.CTkLabel(key_frame, text="Gemini Key:", width=90, anchor="w").pack(side="left")
         env_key = os.environ.get("GEMINI_API_KEY", "").strip()
         self.entry_gemini_key = ctk.CTkEntry(key_frame, placeholder_text="粘贴 API Key...", show="•")
         self.entry_gemini_key.pack(side="left", fill="x", expand=True)
-        if env_key: self.entry_gemini_key.insert(0, env_key)
+        if env_key:
+            self.entry_gemini_key.insert(0, env_key)
         self.entry_gemini_key.bind("<FocusOut>", lambda _e: self._save_pdf_ocr_config())
 
-        # 1.1 Modelverse Key (Deepseek OCR)
-        mv_key_frame = ctk.CTkFrame(left_panel, fg_color="transparent")
-        mv_key_frame.pack(fill="x", padx=25, pady=5)
-        ctk.CTkLabel(mv_key_frame, text="Modelverse Key:", width=90, anchor="w").pack(side="left")
-        mv_env_key = os.environ.get("MODELVERSE_API_KEY", "").strip()
-        self.entry_modelverse_key = ctk.CTkEntry(mv_key_frame, placeholder_text="Paste API Key...", show="*")
-        self.entry_modelverse_key.pack(side="left", fill="x", expand=True)
-        if mv_env_key: self.entry_modelverse_key.insert(0, mv_env_key)
-        self.entry_modelverse_key.bind("<FocusOut>", lambda _e: self._save_pdf_ocr_config())
-
-        # 2. Model & DPI
-        opts_frame = ctk.CTkFrame(left_panel, fg_color="transparent")
-        opts_frame.pack(fill="x", padx=25, pady=5)
-        self.entry_gemini_model = ctk.CTkEntry(opts_frame, placeholder_text="Model", width=140)
-        self.entry_gemini_model.insert(0, "gemini-3-flash-preview")
-        self.entry_gemini_model.pack(side="left", padx=(90, 5)) # Offset to align
-        
-        self.entry_pdf_dpi = ctk.CTkEntry(opts_frame, placeholder_text="DPI", width=60)
-        self.entry_pdf_dpi.insert(0, "200")
-        self.entry_pdf_dpi.pack(side="left")
-        ctk.CTkLabel(opts_frame, text="DPI").pack(side="left", padx=5)
-
-        # 2.5 Layout Model
-        layout_frame = ctk.CTkFrame(left_panel, fg_color="transparent")
-        layout_frame.pack(fill="x", padx=25, pady=5)
+        layout_frame = ctk.CTkFrame(scroll_frame, fg_color="transparent")
+        layout_frame.pack(fill="x", padx=20, pady=5)
         ctk.CTkLabel(layout_frame, text="Layout:", width=90, anchor="w").pack(side="left")
-
         self.layout_model_var = tk.StringVar(value=layout_model_label_from_key(DEFAULT_LAYOUT_MODEL))
         layout_labels = list(LAYOUT_MODEL_LABELS.values())
         self.layout_model_menu = ctk.CTkOptionMenu(
@@ -127,35 +190,132 @@ class UiMixin:
         )
         self.layout_model_menu.pack(side="left", fill="x", expand=True)
 
-        # 2.6 Page Range
-        page_frame = ctk.CTkFrame(left_panel, fg_color="transparent")
-        page_frame.pack(fill="x", padx=25, pady=5)
+        threads_frame = ctk.CTkFrame(scroll_frame, fg_color="transparent")
+        threads_frame.pack(fill="x", padx=20, pady=5)
+        ctk.CTkLabel(threads_frame, text="Layout Threads:", width=90, anchor="w").pack(side="left")
+        self.entry_layout_threads = ctk.CTkEntry(threads_frame, width=70, placeholder_text="1")
+        self.entry_layout_threads.insert(0, "1")
+        self.entry_layout_threads.pack(side="left")
+        self.entry_layout_threads.bind("<FocusOut>", lambda _e: self._save_pdf_ocr_config())
+
+        opts_frame = ctk.CTkFrame(scroll_frame, fg_color="transparent")
+        opts_frame.pack(fill="x", padx=20, pady=5)
+        ctk.CTkLabel(opts_frame, text="Model:", width=90, anchor="w").pack(side="left")
+        self.entry_gemini_model = ctk.CTkEntry(opts_frame, placeholder_text="Model", width=140)
+        self.entry_gemini_model.insert(0, "gemini-2.5-flash")
+        self.entry_gemini_model.pack(side="left", padx=(0, 10))
+        self.entry_pdf_dpi = ctk.CTkEntry(opts_frame, placeholder_text="DPI", width=60)
+        self.entry_pdf_dpi.insert(0, "200")
+        self.entry_pdf_dpi.pack(side="left")
+        ctk.CTkLabel(opts_frame, text="DPI").pack(side="left", padx=5)
+
+        page_frame = ctk.CTkFrame(scroll_frame, fg_color="transparent")
+        page_frame.pack(fill="x", padx=20, pady=5)
         ctk.CTkLabel(page_frame, text="Pages:", width=90, anchor="w").pack(side="left")
-        self.entry_page_range = ctk.CTkEntry(page_frame, placeholder_text="1-3,5,8")
+        self.entry_page_range = ctk.CTkEntry(page_frame, placeholder_text="1-3,5,8 (留空=全部)")
         self.entry_page_range.pack(side="left", fill="x", expand=True)
 
-        # 分割线
-        ctk.CTkFrame(left_panel, height=2, fg_color=Theme.COLOR_BORDER).pack(fill="x", padx=20, pady=20)
+        self._advanced_section = CollapsibleFrame(scroll_frame, title="▸ 高级设置 (DeepSeek / Auto Router)", expanded=False)
+        self._advanced_section.pack(fill="x", padx=20, pady=(15, 5))
+        adv = self._advanced_section.content
 
-        # 3. PDF 选择与运行
-        ctk.CTkLabel(left_panel, text="📄 PDF 处理", font=(Theme.FONT_FAMILY_BOLD[0], 16)).pack(anchor="w", padx=20, pady=(0, 15))
+        provider_frame = ctk.CTkFrame(adv, fg_color="transparent")
+        provider_frame.pack(fill="x", pady=5)
+        ctk.CTkLabel(provider_frame, text="DS Provider:", width=90, anchor="w").pack(side="left")
+        self.deepseek_provider_var = tk.StringVar(value="modelverse")
+        self.deepseek_provider_menu = ctk.CTkOptionMenu(
+            provider_frame,
+            values=["modelverse", "siliconflow", "custom"],
+            variable=self.deepseek_provider_var,
+            command=self._on_deepseek_provider_change,
+        )
+        self.deepseek_provider_menu.pack(side="left", fill="x", expand=True)
+
+        ds_key_frame = ctk.CTkFrame(adv, fg_color="transparent")
+        ds_key_frame.pack(fill="x", pady=5)
+        ctk.CTkLabel(ds_key_frame, text="DeepSeek Key:", width=90, anchor="w").pack(side="left")
+        env_ds_key = (
+            os.environ.get("MODELVERSE_API_KEY", "").strip()
+            or os.environ.get("SILICONFLOW_API_KEY", "").strip()
+            or os.environ.get("DEEPSEEK_API_KEY", "").strip()
+        )
+        self.entry_deepseek_key = ctk.CTkEntry(ds_key_frame, placeholder_text="Paste API Key...", show="*")
+        self.entry_deepseek_key.pack(side="left", fill="x", expand=True)
+        if env_ds_key:
+            self.entry_deepseek_key.insert(0, env_ds_key)
+        self.entry_deepseek_key.bind("<FocusOut>", lambda _e: self._save_pdf_ocr_config())
+
+        ds_url_frame = ctk.CTkFrame(adv, fg_color="transparent")
+        ds_url_frame.pack(fill="x", pady=5)
+        ctk.CTkLabel(ds_url_frame, text="Base URL:", width=90, anchor="w").pack(side="left")
+        self.entry_deepseek_base_url = ctk.CTkEntry(ds_url_frame, placeholder_text="https://api.siliconflow.cn/v1")
+        self.entry_deepseek_base_url.pack(side="left", fill="x", expand=True)
+        self.entry_deepseek_base_url.bind("<FocusOut>", lambda _e: self._save_pdf_ocr_config())
+
+        auto_frame = ctk.CTkFrame(adv, fg_color="transparent")
+        auto_frame.pack(fill="x", pady=5)
+        ctk.CTkLabel(auto_frame, text="Auto Router:", width=90, anchor="w").pack(side="left")
+        self.entry_auto_outside_ratio = ctk.CTkEntry(auto_frame, width=65, placeholder_text="out%")
+        self.entry_auto_outside_ratio.insert(0, "0.01")
+        self.entry_auto_outside_ratio.pack(side="left", padx=(0, 4))
+        self.entry_auto_min_text_ratio = ctk.CTkEntry(auto_frame, width=65, placeholder_text="min%")
+        self.entry_auto_min_text_ratio.insert(0, "0.0005")
+        self.entry_auto_min_text_ratio.pack(side="left", padx=(0, 4))
+        self.entry_auto_min_component_area = ctk.CTkEntry(auto_frame, width=50, placeholder_text="area")
+        self.entry_auto_min_component_area.insert(0, "30")
+        self.entry_auto_min_component_area.pack(side="left")
+        self.entry_auto_outside_ratio.bind("<FocusOut>", lambda _e: self._save_pdf_ocr_config())
+        self.entry_auto_min_text_ratio.bind("<FocusOut>", lambda _e: self._save_pdf_ocr_config())
+        self.entry_auto_min_component_area.bind("<FocusOut>", lambda _e: self._save_pdf_ocr_config())
+
+        auto2_frame = ctk.CTkFrame(adv, fg_color="transparent")
+        auto2_frame.pack(fill="x", pady=5)
+        ctk.CTkLabel(auto2_frame, text="Router Mode:", width=90, anchor="w").pack(side="left")
+        self.router_mode_var = tk.StringVar(value="any")
+        self.router_mode_menu = ctk.CTkOptionMenu(
+            auto2_frame,
+            values=["any", "textness", "second_pass", "gemini"],
+            variable=self.router_mode_var,
+            command=lambda _val: self._save_pdf_ocr_config(),
+            width=120,
+        )
+        self.router_mode_menu.pack(side="left")
+
+        auto3_frame = ctk.CTkFrame(adv, fg_color="transparent")
+        auto3_frame.pack(fill="x", pady=5)
+        self.var_auto_gemini_probe = tk.BooleanVar(value=False)
+        self.chk_auto_gemini_probe = ctk.CTkCheckBox(
+            auto3_frame,
+            text="Gemini Probe",
+            variable=self.var_auto_gemini_probe,
+            command=self._save_pdf_ocr_config,
+        )
+        self.chk_auto_gemini_probe.pack(side="left", padx=(0, 8))
+        self.entry_auto_gemini_model = ctk.CTkEntry(auto3_frame, width=150, placeholder_text="gemini model")
+        self.entry_auto_gemini_model.insert(0, "gemini-2.5-flash-lite")
+        self.entry_auto_gemini_model.pack(side="left", fill="x", expand=True)
+        self.entry_auto_gemini_model.bind("<FocusOut>", lambda _e: self._save_pdf_ocr_config())
+
+        ctk.CTkFrame(scroll_frame, height=2, fg_color=Theme.COLOR_BORDER).pack(fill="x", padx=15, pady=15)
+
+        ctk.CTkLabel(scroll_frame, text="📄 PDF 处理", font=(Theme.FONT_FAMILY_BOLD[0], 16)).pack(anchor="w", padx=15, pady=(0, 10))
         
-        self.btn_select_pdf = ctk.CTkButton(left_panel, text="选择 PDF 文件...", command=self.select_pdf_file, fg_color=Theme.COLOR_BLUE_BTN, hover_color=Theme.COLOR_BLUE_HOVER)
-        self.btn_select_pdf.pack(fill="x", padx=20, pady=5)
+        self.btn_select_pdf = ctk.CTkButton(scroll_frame, text="选择 PDF 文件...", command=self.select_pdf_file, fg_color=Theme.COLOR_BLUE_BTN, hover_color=Theme.COLOR_BLUE_HOVER)
+        self.btn_select_pdf.pack(fill="x", padx=15, pady=5)
         
-        self.pdf_path_label = ctk.CTkLabel(left_panel, text="未选择文件", text_color=Theme.COLOR_TEXT_SECONDARY, wraplength=250)
-        self.pdf_path_label.pack(pady=(0, 15))
+        self.pdf_path_label = ctk.CTkLabel(scroll_frame, text="未选择文件", text_color=Theme.COLOR_TEXT_SECONDARY, wraplength=250)
+        self.pdf_path_label.pack(pady=(0, 10))
 
-        self.btn_run_pdf_ocr = ctk.CTkButton(left_panel, text="🚀 开始切题与识别", command=self.start_pdf_ocr_thread, height=45, font=(Theme.FONT_FAMILY_BOLD[0], 15), fg_color=Theme.COLOR_GREEN_BTN, hover_color=Theme.COLOR_GREEN_HOVER)
-        self.btn_run_pdf_ocr.pack(fill="x", padx=20, pady=(10, 20))
+        self.btn_run_layout = ctk.CTkButton(scroll_frame, text="🧭 仅版面识别", command=self.start_pdf_layout_thread, height=36, font=(Theme.FONT_FAMILY_BOLD[0], 14), fg_color=Theme.COLOR_BLUE_BTN, hover_color=Theme.COLOR_BLUE_HOVER)
+        self.btn_run_layout.pack(fill="x", padx=15, pady=(5, 5))
 
-        # 进度条
-        self.pdf_ocr_progress = ctk.CTkProgressBar(left_panel)
-        self.pdf_ocr_progress.pack(fill="x", padx=20, pady=(0, 10))
+        self.btn_run_pdf_ocr = ctk.CTkButton(scroll_frame, text="🚀 开始切题与识别", command=self.start_pdf_ocr_thread, height=42, font=(Theme.FONT_FAMILY_BOLD[0], 15), fg_color=Theme.COLOR_GREEN_BTN, hover_color=Theme.COLOR_GREEN_HOVER)
+        self.btn_run_pdf_ocr.pack(fill="x", padx=15, pady=(0, 15))
+
+        self.pdf_ocr_progress = ctk.CTkProgressBar(scroll_frame)
+        self.pdf_ocr_progress.pack(fill="x", padx=15, pady=(0, 10))
         self.pdf_ocr_progress.set(0)
 
-
-        # 右侧：状态与结果
         right_panel = ctk.CTkFrame(container, fg_color=Theme.COLOR_BG_PANEL, corner_radius=Theme.CORNER_RADIUS_L)
         right_panel.grid(row=0, column=1, sticky="nsew")
         
@@ -164,7 +324,6 @@ class UiMixin:
         self.pdf_ocr_status_label = ctk.CTkLabel(right_panel, text="等待开始...", anchor="w", justify="left")
         self.pdf_ocr_status_label.pack(fill="x", padx=20, pady=(0, 10))
 
-        # 结果操作区
         res_frame = ctk.CTkFrame(right_panel, fg_color=("gray95", "#252525"))
         res_frame.pack(fill="both", expand=True, padx=15, pady=15)
         
@@ -178,6 +337,7 @@ class UiMixin:
         self.btn_open_pdf_ocr_dir.pack(side="left", padx=5)
 
         self._load_pdf_ocr_config()
+        self._apply_deepseek_provider(save=False)
 
     def _init_editor_tab_ui(self):
         """Tab 2: 纯净的编辑器界面"""
@@ -254,15 +414,47 @@ class UiMixin:
 
         # Card 4: 系统日志
         card_log = self.create_card(right_col, "🪵 系统日志", "运行记录")
-        card_log.pack(fill="both", expand=True) # 让日志卡片占满剩余空间
+        card_log.pack(fill="both", expand=True)
         
         log_toolbar = ctk.CTkFrame(card_log, fg_color="transparent")
         log_toolbar.pack(fill="x", padx=15, pady=5)
-        ctk.CTkButton(log_toolbar, text="清空日志", command=self._clear_log, width=60, height=24, font=("Arial", 11), fg_color="gray").pack(side="right")
+
+        ctk.CTkLabel(log_toolbar, text="过滤:", font=(Theme.FONT_FAMILY[0], 11)).pack(side="left", padx=(0, 5))
+        self._log_filter_var = tk.StringVar(value="all")
+        filter_menu = ctk.CTkOptionMenu(
+            log_toolbar,
+            values=["all", "info", "warn", "error", "debug"],
+            variable=self._log_filter_var,
+            command=lambda v: self._set_log_filter(v),
+            width=80,
+            height=24,
+        )
+        filter_menu.pack(side="left", padx=(0, 10))
+
+        ctk.CTkButton(
+            log_toolbar,
+            text="📂 打开日志",
+            command=self._open_log_file,
+            width=80,
+            height=24,
+            font=(Theme.FONT_FAMILY[0], 11),
+            fg_color="gray",
+        ).pack(side="right", padx=(5, 0))
+
+        ctk.CTkButton(
+            log_toolbar,
+            text="清空",
+            command=self._clear_log,
+            width=50,
+            height=24,
+            font=(Theme.FONT_FAMILY[0], 11),
+            fg_color="gray",
+        ).pack(side="right")
         
         self.log_textbox = ctk.CTkTextbox(card_log, font=(Theme.FONT_CODE[0], 11), activate_scrollbars=True)
         self.log_textbox.pack(fill="both", expand=True, padx=10, pady=(0, 10))
         self.log_textbox.configure(state="disabled")
+        self._configure_log_tags()
 
     def create_card(self, parent, title, subtitle=""):
         frame = ctk.CTkFrame(parent, fg_color=Theme.COLOR_BG_PANEL, corner_radius=Theme.CORNER_RADIUS_L)
@@ -323,13 +515,158 @@ class PdfOcrMixin:
         def apply():
             st = "normal" if enabled else "disabled"
             self.btn_select_pdf.configure(state=st)
+            self.deepseek_provider_menu.configure(state=st)
+            self.entry_deepseek_key.configure(state=st)
+            self.entry_deepseek_base_url.configure(state=st)
+            self.entry_layout_threads.configure(state=st)
+            self.btn_run_layout.configure(state=st)
             self.btn_run_pdf_ocr.configure(state=st)
             self.entry_gemini_key.configure(state=st)
-            self.entry_modelverse_key.configure(state=st)
             self.entry_gemini_model.configure(state=st)
             self.layout_model_menu.configure(state=st)
+            self.entry_auto_outside_ratio.configure(state=st)
+            self.entry_auto_min_text_ratio.configure(state=st)
+            self.entry_auto_min_component_area.configure(state=st)
+            self.router_mode_menu.configure(state=st)
+            self.chk_auto_gemini_probe.configure(state=st)
+            self.entry_auto_gemini_model.configure(state=st)
             self.entry_page_range.configure(state=st)
         self.after(0, apply)
+
+    def _ensure_deepseek_keys(self):
+        if not hasattr(self, "_deepseek_keys") or not isinstance(self._deepseek_keys, dict):
+            self._deepseek_keys = {}
+
+    def _get_deepseek_provider(self) -> str:
+        return (self.deepseek_provider_var.get() or "modelverse").strip().lower()
+
+    def _get_layout_threads(self) -> int:
+        try:
+            v = int(self.entry_layout_threads.get().strip() or "1")
+        except Exception:
+            v = 1
+        if v < 1:
+            v = 1
+        if v > 32:
+            v = 32
+        return v
+
+    def _remember_current_deepseek_key(self):
+        self._ensure_deepseek_keys()
+        provider = self._get_deepseek_provider()
+        key = (self.entry_deepseek_key.get() or "").strip()
+        if key:
+            self._deepseek_keys[provider] = key
+
+    def _env_deepseek_key(self, provider: str) -> str:
+        if provider == "siliconflow":
+            return os.environ.get("SILICONFLOW_API_KEY", "").strip()
+        if provider == "modelverse":
+            return (
+                os.environ.get("MODELVERSE_API_KEY", "").strip()
+                or os.environ.get("DEEPSEEK_API_KEY", "").strip()
+            )
+        return (
+            os.environ.get("DEEPSEEK_API_KEY", "").strip()
+            or os.environ.get("MODELVERSE_API_KEY", "").strip()
+            or os.environ.get("SILICONFLOW_API_KEY", "").strip()
+        )
+
+    def _apply_deepseek_provider(self, provider: str | None = None, save: bool = True):
+        self._ensure_deepseek_keys()
+        new_provider = (provider or self._get_deepseek_provider()).strip().lower()
+        old_provider = getattr(self, "_deepseek_provider_current", None)
+        if old_provider:
+            current_key = (self.entry_deepseek_key.get() or "").strip()
+            if current_key:
+                self._deepseek_keys[old_provider] = current_key
+
+        new_key = self._deepseek_keys.get(new_provider) or self._env_deepseek_key(new_provider)
+        self.entry_deepseek_key.delete(0, "end")
+        if new_key:
+            self.entry_deepseek_key.insert(0, new_key)
+        self._deepseek_provider_current = new_provider
+        if save:
+            self._save_pdf_ocr_config()
+
+    def _on_deepseek_provider_change(self, _val=None):
+        self._apply_deepseek_provider(_val, save=True)
+
+    def _get_deepseek_api_key(self, provider: str) -> str:
+        entry_key = (self.entry_deepseek_key.get() or "").strip()
+        if entry_key:
+            return entry_key
+        self._ensure_deepseek_keys()
+        cached = self._deepseek_keys.get(provider)
+        if cached:
+            return cached
+        if provider == "siliconflow":
+            return os.environ.get("SILICONFLOW_API_KEY", "").strip()
+        if provider == "custom":
+            return (
+                os.environ.get("DEEPSEEK_API_KEY", "").strip()
+                or os.environ.get("MODELVERSE_API_KEY", "").strip()
+                or os.environ.get("SILICONFLOW_API_KEY", "").strip()
+            )
+        return (
+            os.environ.get("MODELVERSE_API_KEY", "").strip()
+            or os.environ.get("DEEPSEEK_API_KEY", "").strip()
+        )
+
+    def _resolve_deepseek_base_url(self, provider: str) -> str | None:
+        if provider == "siliconflow":
+            return "https://api.siliconflow.cn/v1"
+        if provider == "custom":
+            url = (self.entry_deepseek_base_url.get() or "").strip()
+            return url or None
+        return None
+
+    def start_pdf_layout_thread(self):
+        if not self._pdf_path or not os.path.exists(self._pdf_path):
+            messagebox.showwarning("提示", "请先选择一个 PDF 文件。")
+            return
+
+        model_label = (self.layout_model_var.get() or "").strip()
+        model_key = layout_model_key_from_label(model_label) or DEFAULT_LAYOUT_MODEL
+
+        provider = self._get_deepseek_provider()
+        ds_key = self._get_deepseek_api_key(provider)
+        if model_key in ("deepseek_ocr", "auto_router") and not ds_key:
+            messagebox.showwarning("提示", "请先填写 DeepSeek API Key。")
+            return
+        if provider == "custom":
+            base_url = self._resolve_deepseek_base_url(provider)
+            if not base_url:
+                messagebox.showwarning("提示", "自定义提供商需要填写 Base URL。")
+                return
+
+        api_key = (self.entry_gemini_key.get() or os.environ.get("GEMINI_API_KEY", "")).strip()
+        if model_key == "auto_router" and self.var_auto_gemini_probe.get() and not api_key:
+            messagebox.showwarning("提示", "启用 Gemini Probe 时需要 Gemini API Key。")
+            return
+
+        try:
+            dpi = int(self.entry_pdf_dpi.get() or "200")
+        except Exception:
+            dpi = 200
+
+        self._pdf_ocr_last_text = ""
+        self._pdf_ocr_last_dir = ""
+        self.btn_copy_pdf_ocr.configure(state="disabled")
+        self.btn_open_pdf_ocr_dir.configure(state="disabled")
+
+        self._set_pdf_ocr_controls_enabled(False)
+        self._set_pdf_ocr_progress(0)
+        self._set_pdf_ocr_status("正在初始化版面识别...")
+        self.flash_status("📄 开始版面识别...")
+
+        page_range = (self.entry_page_range.get() or "").strip()
+
+        threading.Thread(
+            target=self._run_pdf_layout,
+            args=(self._pdf_path, dpi, page_range, api_key),
+            daemon=True,
+        ).start()
 
     def start_pdf_ocr_thread(self):
         if not self._pdf_path or not os.path.exists(self._pdf_path):
@@ -363,40 +700,278 @@ class PdfOcrMixin:
             daemon=True,
         ).start()
 
+    def _run_pdf_layout(self, pdf_path: str, dpi: int, page_range: str, api_key: str):
+        try:
+            pdf_path_obj = Path(pdf_path)
+            output_root = Path("output") / "pdf_ocr"
+            output_dir = output_root / pdf_path_obj.stem
+            self._append_log(f"[cfg] pdf={pdf_path_obj}")
+            self._append_log(f"[cfg] output_dir={output_dir}")
+            self._append_log(f"[cfg] dpi={dpi}, page_range={page_range or 'ALL'}")
+
+            model_label = (self.layout_model_var.get() or "").strip()
+            model_key = layout_model_key_from_label(model_label) or DEFAULT_LAYOUT_MODEL
+            model_label = layout_model_label_from_key(model_key)
+            self._append_log(f"[cfg] layout_model={model_key} ({model_label})")
+
+            self._set_pdf_ocr_status(f"正在加载布局模型: {model_label} ...")
+            if model_key not in self._layout_extractors:
+                try:
+                    provider = self._get_deepseek_provider()
+                    mv_key = self._get_deepseek_api_key(provider)
+                    base_url = self._resolve_deepseek_base_url(provider)
+                    self._append_log(f"[cfg] deepseek_provider={provider} base_url={base_url or 'default'}")
+                    if model_key in ("deepseek_ocr", "auto_router") and not mv_key:
+                        raise RuntimeError("请先填写 DeepSeek API Key")
+                    if provider == "custom" and not base_url:
+                        raise RuntimeError("自定义提供商需要填写 Base URL")
+                    auto_cfg = None
+                    if model_key == "auto_router":
+                        try:
+                            outside_ratio = float(self.entry_auto_outside_ratio.get().strip() or "0.01")
+                        except Exception:
+                            outside_ratio = 0.01
+                        try:
+                            min_text_ratio = float(self.entry_auto_min_text_ratio.get().strip() or "0.0005")
+                        except Exception:
+                            min_text_ratio = 0.0005
+                        try:
+                            min_area = int(float(self.entry_auto_min_component_area.get().strip() or "30"))
+                        except Exception:
+                            min_area = 30
+                        auto_cfg = {
+                            "text_outside_ratio": outside_ratio,
+                            "min_text_ratio": min_text_ratio,
+                            "min_component_area": min_area,
+                            "use_gemini_probe": bool(self.var_auto_gemini_probe.get()),
+                            "gemini_api_key": api_key,
+                            "gemini_model": (self.entry_auto_gemini_model.get().strip() or "gemini-2.5-flash-lite"),
+                            "router_mode": (self.router_mode_var.get().strip() or "any"),
+                        }
+                        self._append_log(
+                            f"[cfg] auto_router outside_ratio={outside_ratio}, min_text_ratio={min_text_ratio}, "
+                            f"min_component_area={min_area}, gemini_probe={auto_cfg['use_gemini_probe']}, "
+                            f"gemini_model={auto_cfg['gemini_model']}, router_mode={auto_cfg['router_mode']}"
+                        )
+                    self._layout_extractors[model_key] = create_layout_extractor(
+                        model_key,
+                        deepseek_api_key=mv_key or None,
+                        deepseek_base_url=base_url or None,
+                        auto_router_config=auto_cfg,
+                    )
+                except Exception as e:
+                    raise RuntimeError(f"模型初始化失败: {e}")
+
+            extractor = self._layout_extractors[model_key]
+
+            def _layout_log(**info):
+                event = info.get("event")
+                page = info.get("page")
+                total = info.get("total")
+                model = info.get("model")
+                if event == "page_start":
+                    self._append_log(f"[layout] page {page}/{total} start ({model})")
+                elif event == "page_detected":
+                    self._append_log(f"[layout] page {page}/{total} detected items={info.get('items')} ({model})")
+                elif event == "page_saved":
+                    self._append_log(f"[layout] page {page}/{total} saved items={info.get('items')} ({model})")
+                elif event == "router_textness":
+                    self._append_log(
+                        f"[router] page {page}/{total} text_ratio={info.get('text_ratio', 0):.6f} "
+                        f"outside_ratio={info.get('outside_ratio', 0):.6f} use_deepseek={info.get('use_deepseek')}"
+                    )
+                elif event == "router_gemini_probe":
+                    self._append_log(
+                        f"[router] page {page}/{total} gemini_probe={info.get('gemini_has_text')} use_deepseek={info.get('use_deepseek')}"
+                    )
+                elif event == "router_decision":
+                    self._append_log(
+                        f"[router] page {page}/{total} choose={info.get('chosen')} items={info.get('items')}"
+                    )
+                elif event == "router_second_pass":
+                    self._append_log(
+                        f"[router] page {page}/{total} second_pass items={info.get('second_items')}"
+                    )
+                else:
+                    self._append_log(f"[layout] page {page}/{total} event={event} info={info}")
+
+            if hasattr(extractor, "progress_cb"):
+                extractor.progress_cb = _layout_log
+
+            range_note = f" (Pages: {page_range})" if page_range else ""
+            self._set_pdf_ocr_status(f"正在分析 PDF: {pdf_path_obj.name}{range_note} ...")
+
+            ignored = ["abandon"] if model_key == "doclayout_yolo" else None
+            self._append_log(f"[cfg] ignored_labels={ignored}")
+            layout_threads = self._get_layout_threads()
+            layout_kwargs = {}
+            if model_key == "deepseek_ocr":
+                layout_kwargs["num_workers"] = layout_threads
+                self._append_log(f"[cfg] layout_threads={layout_threads}")
+
+            items = extractor.process_pdf(
+                pdf_path=pdf_path_obj, output_dir=output_root, dpi=dpi, conf=0.25,
+                ignored_labels=ignored, page_range=page_range or None, return_items=True, **layout_kwargs
+            )
+
+            if not items:
+                raise RuntimeError("No layout items detected")
+            self._append_log(f"[layout] detected_items={len(items)}")
+            page_counts = {}
+            for it in items:
+                p = it.get("page")
+                if not p:
+                    continue
+                page_counts[p] = page_counts.get(p, 0) + 1
+            if page_counts:
+                pages = ",".join(str(p) for p in sorted(page_counts))
+                self._append_log(f"[layout] pages={pages}")
+                for p in sorted(page_counts):
+                    self._append_log(f"[layout] page {p} items={page_counts[p]}")
+
+            self._pdf_ocr_last_dir = str(output_dir)
+            self._set_pdf_ocr_progress(1.0)
+            self._set_pdf_ocr_status("版面识别完成。")
+            self.flash_status("✅ 版面识别完成")
+            self.after(0, lambda: self.btn_open_pdf_ocr_dir.configure(state="normal"))
+            self.after(0, lambda: messagebox.showinfo("成功", "版面识别完成！"))
+
+        except Exception as e:
+            self._set_pdf_ocr_status(f"错误: {e}")
+            self.flash_status(f"❌ 失败: {e}")
+            err_text = str(e)
+            self.after(0, lambda msg=err_text: messagebox.showerror("出错", msg))
+        finally:
+            self._set_pdf_ocr_controls_enabled(True)
+
     def _run_pdf_ocr(self, pdf_path: str, api_key: str, model_name: str, dpi: int, page_range: str):
         try:
             pdf_path_obj = Path(pdf_path)
             output_root = Path("output") / "pdf_ocr"
             output_dir = output_root / pdf_path_obj.stem
+            self._append_log(f"[cfg] pdf={pdf_path_obj}")
+            self._append_log(f"[cfg] output_dir={output_dir}")
+            self._append_log(f"[cfg] dpi={dpi}, page_range={page_range or 'ALL'}")
+            self._append_log(f"[cfg] gemini_model={model_name}")
             
             model_label = (self.layout_model_var.get() or "").strip()
             model_key = layout_model_key_from_label(model_label) or DEFAULT_LAYOUT_MODEL
             model_label = layout_model_label_from_key(model_key)
+            self._append_log(f"[cfg] layout_model={model_key} ({model_label})")
 
             self._set_pdf_ocr_status(f"正在加载布局模型: {model_label} ...")
             if model_key not in self._layout_extractors:
                 try:
-                    mv_key = (self.entry_modelverse_key.get() or os.environ.get("MODELVERSE_API_KEY", "")).strip()
-                    if model_key == "deepseek_ocr" and not mv_key:
-                        raise RuntimeError("è¯·å…ˆå¡«å†? Modelverse API Key (Deepseek OCR æ‰€éœ€)")
+                    provider = self._get_deepseek_provider()
+                    mv_key = self._get_deepseek_api_key(provider)
+                    base_url = self._resolve_deepseek_base_url(provider)
+                    self._append_log(f"[cfg] deepseek_provider={provider} base_url={base_url or 'default'}")
+                    if model_key in ("deepseek_ocr", "auto_router") and not mv_key:
+                        raise RuntimeError("请先填写 DeepSeek API Key")
+                    if provider == "custom" and not base_url:
+                        raise RuntimeError("自定义提供商需要填写 Base URL")
+                    auto_cfg = None
+                    if model_key == "auto_router":
+                        try:
+                            outside_ratio = float(self.entry_auto_outside_ratio.get().strip() or "0.01")
+                        except Exception:
+                            outside_ratio = 0.01
+                        try:
+                            min_text_ratio = float(self.entry_auto_min_text_ratio.get().strip() or "0.0005")
+                        except Exception:
+                            min_text_ratio = 0.0005
+                        try:
+                            min_area = int(float(self.entry_auto_min_component_area.get().strip() or "30"))
+                        except Exception:
+                            min_area = 30
+                        auto_cfg = {
+                            "text_outside_ratio": outside_ratio,
+                            "min_text_ratio": min_text_ratio,
+                            "min_component_area": min_area,
+                            "use_gemini_probe": bool(self.var_auto_gemini_probe.get()),
+                            "gemini_api_key": api_key,
+                            "gemini_model": (self.entry_auto_gemini_model.get().strip() or "gemini-2.5-flash-lite"),
+                            "router_mode": (self.router_mode_var.get().strip() or "any"),
+                        }
+                        self._append_log(
+                            f"[cfg] auto_router outside_ratio={outside_ratio}, min_text_ratio={min_text_ratio}, "
+                            f"min_component_area={min_area}, gemini_probe={auto_cfg['use_gemini_probe']}, "
+                            f"gemini_model={auto_cfg['gemini_model']}, router_mode={auto_cfg['router_mode']}"
+                        )
                     self._layout_extractors[model_key] = create_layout_extractor(
                         model_key,
                         deepseek_api_key=mv_key or None,
+                        deepseek_base_url=base_url or None,
+                        auto_router_config=auto_cfg,
                     )
                 except Exception as e:
                     raise RuntimeError(f"模型初始化失败: {e}")
+
             extractor = self._layout_extractors[model_key]
+
+            def _layout_log(**info):
+                event = info.get("event")
+                page = info.get("page")
+                total = info.get("total")
+                model = info.get("model")
+                if event == "page_start":
+                    self._append_log(f"[layout] page {page}/{total} start ({model})")
+                elif event == "page_detected":
+                    self._append_log(f"[layout] page {page}/{total} detected items={info.get('items')} ({model})")
+                elif event == "page_saved":
+                    self._append_log(f"[layout] page {page}/{total} saved items={info.get('items')} ({model})")
+                elif event == "router_textness":
+                    self._append_log(
+                        f"[router] page {page}/{total} text_ratio={info.get('text_ratio', 0):.6f} "
+                        f"outside_ratio={info.get('outside_ratio', 0):.6f} use_deepseek={info.get('use_deepseek')}"
+                    )
+                elif event == "router_gemini_probe":
+                    self._append_log(
+                        f"[router] page {page}/{total} gemini_probe={info.get('gemini_has_text')} use_deepseek={info.get('use_deepseek')}"
+                    )
+                elif event == "router_decision":
+                    self._append_log(
+                        f"[router] page {page}/{total} choose={info.get('chosen')} items={info.get('items')}"
+                    )
+                elif event == "router_second_pass":
+                    self._append_log(
+                        f"[router] page {page}/{total} second_pass items={info.get('second_items')}"
+                    )
+                else:
+                    self._append_log(f"[layout] page {page}/{total} event={event} info={info}")
+
+            if hasattr(extractor, "progress_cb"):
+                extractor.progress_cb = _layout_log
 
             range_note = f" (Pages: {page_range})" if page_range else ""
             self._set_pdf_ocr_status(f"正在分析 PDF: {pdf_path_obj.name}{range_note} ...")
             
             ignored = ["abandon"] if model_key == "doclayout_yolo" else None
+            self._append_log(f"[cfg] ignored_labels={ignored}")
+            layout_threads = self._get_layout_threads()
+            layout_kwargs = {}
+            if model_key == "deepseek_ocr":
+                layout_kwargs["num_workers"] = layout_threads
+                self._append_log(f"[cfg] layout_threads={layout_threads}")
+
             items = extractor.process_pdf(
                 pdf_path=pdf_path_obj, output_dir=output_root, dpi=dpi, conf=0.25,
-                ignored_labels=ignored, page_range=page_range or None, return_items=True
+                ignored_labels=ignored, page_range=page_range or None, return_items=True, **layout_kwargs
             )
 
-            if not items: raise RuntimeError("?????????")
+            if not items: raise RuntimeError("No OCR items detected")
+            self._append_log(f"[layout] detected_items={len(items)}")
+            page_counts = {}
+            for it in items:
+                p = it.get("page")
+                if not p:
+                    continue
+                page_counts[p] = page_counts.get(p, 0) + 1
+            if page_counts:
+                pages = ",".join(str(p) for p in sorted(page_counts))
+                self._append_log(f"[layout] pages={pages}")
+                for p in sorted(page_counts):
+                    self._append_log(f"[layout] page {p} items={page_counts[p]}")
 
             figure_labels = getattr(extractor, "figure_labels", {"figure"})
             full_text_list = []
@@ -426,6 +1001,7 @@ class PdfOcrMixin:
             self._set_pdf_ocr_status(
                 f"正在识别（共 {total_items} 项，OCR {len(ocr_indices)} 项 / 图像 {total_items - len(ocr_indices)} 项）Gemini 处理中..."
             )
+            self._append_log(f"[ocr] queue={len(ocr_indices)}")
 
             max_workers = 8
             completed = 0
@@ -433,7 +1009,12 @@ class PdfOcrMixin:
             def _ocr_one(seq: int, idx: int):
                 self._set_pdf_ocr_status(f"正在识别 ({seq}/{len(ocr_indices)})...")
                 item = items[idx]
+                item_name = os.path.basename(item.get("path", ""))
+                t0 = time.time()
+                self._append_log(f"[ocr] start {seq}/{len(ocr_indices)} file={item_name}")
                 res = call_gemini_ocr(api_key, model_name, item["path"], prompt)
+                dt = time.time() - t0
+                self._append_log(f"[ocr] done {seq}/{len(ocr_indices)} file={item_name} len={len(res)} time={dt:.2f}s")
                 return idx, res
 
             if ocr_indices:
@@ -489,24 +1070,62 @@ class PdfOcrMixin:
         try:
             if not os.path.exists(self._config_path): return
             with open(self._config_path, "r") as f: data = json.load(f)
+            self._deepseek_keys = {}
+            if isinstance(data.get("deepseek_keys"), dict):
+                self._deepseek_keys.update(data.get("deepseek_keys", {}))
             if k := data.get("gemini_key"): 
                 self.entry_gemini_key.delete(0, "end"); self.entry_gemini_key.insert(0, k)
-            if mvk := data.get("modelverse_key"):
-                self.entry_modelverse_key.delete(0, "end"); self.entry_modelverse_key.insert(0, mvk)
+            mvk = data.get("deepseek_key") or data.get("modelverse_key")
+            if mvk:
+                provider = (data.get("deepseek_provider") or "modelverse").strip().lower()
+                self._deepseek_keys[provider] = mvk
+            if v := data.get("deepseek_provider"):
+                if str(v) in ["modelverse", "siliconflow", "custom"]:
+                    self.deepseek_provider_var.set(str(v))
+            if v := data.get("deepseek_base_url"):
+                self.entry_deepseek_base_url.delete(0, "end"); self.entry_deepseek_base_url.insert(0, str(v))
+            if v := data.get("layout_threads"):
+                self.entry_layout_threads.delete(0, "end"); self.entry_layout_threads.insert(0, str(v))
+            if v := data.get("auto_outside_ratio"):
+                self.entry_auto_outside_ratio.delete(0, "end"); self.entry_auto_outside_ratio.insert(0, str(v))
+            if v := data.get("auto_min_text_ratio"):
+                self.entry_auto_min_text_ratio.delete(0, "end"); self.entry_auto_min_text_ratio.insert(0, str(v))
+            if v := data.get("auto_min_component_area"):
+                self.entry_auto_min_component_area.delete(0, "end"); self.entry_auto_min_component_area.insert(0, str(v))
+            if v := data.get("auto_gemini_probe"):
+                self.var_auto_gemini_probe.set(bool(v))
+            if v := data.get("auto_gemini_model"):
+                self.entry_auto_gemini_model.delete(0, "end"); self.entry_auto_gemini_model.insert(0, str(v))
+            if v := data.get("auto_router_mode"):
+                if str(v) in ["any", "textness", "second_pass", "gemini"]:
+                    self.router_mode_var.set(str(v))
             if model_key := data.get("layout_model"):
                 label = layout_model_label_from_key(model_key)
                 if label in LAYOUT_MODEL_LABELS.values():
                     self.layout_model_var.set(label)
+            self._apply_deepseek_provider(save=False)
         except: pass
 
     def _save_pdf_ocr_config(self):
         try:
             model_label = (self.layout_model_var.get() or "").strip()
             model_key = layout_model_key_from_label(model_label) or DEFAULT_LAYOUT_MODEL
+            self._remember_current_deepseek_key()
             with open(self._config_path, "w") as f:
                 json.dump({
                     "gemini_key": self.entry_gemini_key.get().strip(),
-                    "modelverse_key": self.entry_modelverse_key.get().strip(),
+                    "deepseek_key": self.entry_deepseek_key.get().strip(),
+                    "modelverse_key": self.entry_deepseek_key.get().strip(),
+                    "deepseek_keys": getattr(self, "_deepseek_keys", {}),
+                    "deepseek_provider": self.deepseek_provider_var.get().strip(),
+                    "deepseek_base_url": self.entry_deepseek_base_url.get().strip(),
+                    "layout_threads": self.entry_layout_threads.get().strip(),
+                    "auto_outside_ratio": self.entry_auto_outside_ratio.get().strip(),
+                    "auto_min_text_ratio": self.entry_auto_min_text_ratio.get().strip(),
+                    "auto_min_component_area": self.entry_auto_min_component_area.get().strip(),
+                    "auto_gemini_probe": bool(self.var_auto_gemini_probe.get()),
+                    "auto_gemini_model": self.entry_auto_gemini_model.get().strip(),
+                    "auto_router_mode": self.router_mode_var.get().strip(),
                     "layout_model": model_key,
                 }, f)
         except: pass
@@ -585,30 +1204,138 @@ class EditorMixin:
             self._apply_issue_highlights(issues)
 
 class LogMixin:
-    def _append_log(self, msg: str):
-        if not hasattr(self, "log_textbox"): return
-        ts = time.strftime("%H:%M:%S", time.localtime())
-        self.after(0, lambda: self._update_log_ui(f"[{ts}] {msg}\n"))
-        with self._log_lock:
-            with open(self._log_path, "a", encoding="utf-8") as f: f.write(f"[{ts}] {msg}\n")
+    LOG_LEVEL_INFO = "info"
+    LOG_LEVEL_WARN = "warn"
+    LOG_LEVEL_ERROR = "error"
+    LOG_LEVEL_DEBUG = "debug"
 
-    def _update_log_ui(self, line):
+    def _append_log(self, msg: str, level: str = "info"):
+        if not hasattr(self, "log_textbox"):
+            return
+        ts = time.strftime("%H:%M:%S", time.localtime())
+        level = level.lower()
+        prefix_map = {
+            "info": "INFO",
+            "warn": "WARN",
+            "warning": "WARN",
+            "error": "ERR ",
+            "err": "ERR ",
+            "debug": "DBG ",
+        }
+        prefix = prefix_map.get(level, "INFO")
+        line = f"[{ts}] [{prefix}] {msg}\n"
+        self.after(0, lambda: self._update_log_ui(line, level))
+        with self._log_lock:
+            with open(self._log_path, "a", encoding="utf-8") as f:
+                f.write(line)
+
+    def log_info(self, msg: str):
+        self._append_log(msg, "info")
+
+    def log_warn(self, msg: str):
+        self._append_log(msg, "warn")
+
+    def log_error(self, msg: str):
+        self._append_log(msg, "error")
+
+    def log_debug(self, msg: str):
+        self._append_log(msg, "debug")
+
+    def _update_log_ui(self, line: str, level: str = "info"):
         try:
+            if not hasattr(self, "log_textbox"):
+                return
+            current_filter = getattr(self, "_log_filter_level", "all")
+            if current_filter != "all" and level != current_filter:
+                if not hasattr(self, "_log_buffer"):
+                    self._log_buffer = []
+                self._log_buffer.append((line, level))
+                return
+
             self.log_textbox.configure(state="normal")
+            start_idx = self.log_textbox.index("end-1c")
             self.log_textbox.insert("end", line)
+            end_idx = self.log_textbox.index("end-1c")
+
+            tag = f"log_{level}"
+            self.log_textbox.tag_add(tag, start_idx, end_idx)
+
             self.log_textbox.see("end")
             self.log_textbox.configure(state="disabled")
-        except: pass
+        except Exception:
+            pass
+
+    def _configure_log_tags(self):
+        if not hasattr(self, "log_textbox"):
+            return
+        try:
+            self.log_textbox.tag_config("log_info", foreground=("#1A1A1A", "#E0E0E0"))
+            self.log_textbox.tag_config("log_warn", foreground=("#B8860B", "#FFD700"))
+            self.log_textbox.tag_config("log_error", foreground=("#CC0000", "#FF6B6B"))
+            self.log_textbox.tag_config("log_debug", foreground=("#6C757D", "#888888"))
+        except Exception:
+            pass
 
     def _clear_log(self):
+        if not hasattr(self, "log_textbox"):
+            return
         self.log_textbox.configure(state="normal")
         self.log_textbox.delete("0.0", "end")
         self.log_textbox.configure(state="disabled")
+        if hasattr(self, "_log_buffer"):
+            self._log_buffer.clear()
 
     def _init_log_file(self) -> str:
         d = os.path.join("output", "logs")
         os.makedirs(d, exist_ok=True)
         return os.path.join(d, time.strftime("gui_%Y%m%d.log"))
+
+    def _open_log_file(self):
+        if not hasattr(self, "_log_path"):
+            return
+        path = self._log_path
+        if os.path.exists(path):
+            if os.name == "nt":
+                os.startfile(path)
+            else:
+                subprocess.call(["open" if sys.platform == "darwin" else "xdg-open", path])
+
+    def _set_log_filter(self, level: str):
+        self._log_filter_level = level.lower()
+        self._refresh_log_display()
+
+    def _refresh_log_display(self):
+        if not hasattr(self, "log_textbox") or not hasattr(self, "_log_path"):
+            return
+        try:
+            with open(self._log_path, "r", encoding="utf-8") as f:
+                lines = f.readlines()
+        except Exception:
+            return
+
+        self.log_textbox.configure(state="normal")
+        self.log_textbox.delete("0.0", "end")
+
+        current_filter = getattr(self, "_log_filter_level", "all")
+        for line in lines:
+            level = "info"
+            if "[WARN]" in line:
+                level = "warn"
+            elif "[ERR ]" in line:
+                level = "error"
+            elif "[DBG ]" in line:
+                level = "debug"
+
+            if current_filter != "all" and level != current_filter:
+                continue
+
+            start_idx = self.log_textbox.index("end-1c")
+            self.log_textbox.insert("end", line)
+            end_idx = self.log_textbox.index("end-1c")
+            self.log_textbox.tag_add(f"log_{level}", start_idx, end_idx)
+
+        self.log_textbox.see("end")
+        self.log_textbox.configure(state="disabled")
 
 class GenerationMixin:
     def start_generation_thread(self):

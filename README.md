@@ -144,36 +144,9 @@ xelatex --version
 
 ## 📦 安装
 
-### 第一步：安装pytorch
-> **为什么 PyTorch 要单独装？**  
-> PyTorch 的 GPU/CPU 版本不同，无法在 `pyproject.toml` 中统一指定。用户需根据自己的硬件环境选择安装。
-
-
-PyTorch 需要根据你的硬件环境单独安装。访问 [PyTorch 官网](https://pytorch.org/get-started/locally/) 获取最新安装命令。
-
-#### 常用安装命令
-
-| 环境 | 命令 |
-|------|------|
-| **CUDA 12.1** (推荐) | `pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121` |
-| **CUDA 11.8** | `pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118` |
-| **CPU only** | `pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu` |
-
-#### 验证安装
-
-```python
-import torch
-print(f"PyTorch 版本: {torch.__version__}")
-print(f"CUDA 可用: {torch.cuda.is_available()}")
-if torch.cuda.is_available():
-    print(f"CUDA 版本: {torch.version.cuda}")
-    print(f"GPU: {torch.cuda.get_device_name(0)}")
-```
-
----
-### 第二步：安装项目
-
 本项目使用 [uv](https://github.com/astral-sh/uv) 进行依赖管理。
+
+### 第一步：克隆仓库并安装依赖
 
 ```bash
 # 1. 安装 uv（如果还没有）
@@ -189,10 +162,41 @@ cd AI-Powered-Exam-Digitizer
 
 # 3. 同步项目依赖（自动创建 .venv 虚拟环境）
 uv sync
-
-# 4. 运行
-uv run python main.py
 ```
+
+### 第二步：安装 PyTorch（GPU 用户必看）
+
+> **⚠️ 重要**：`uv sync` 会安装 CPU 版本的 PyTorch。如果你有 NVIDIA GPU，需要**在 uv sync 之后**手动覆盖安装 GPU 版本。
+
+```bash
+# 查看你的 CUDA 版本
+nvidia-smi
+
+# 根据 CUDA 版本选择安装命令（在项目目录下执行）：
+# CUDA 12.4
+uv pip install torch torchvision --index-url https://download.pytorch.org/whl/cu124 --force-reinstall
+
+# CUDA 12.1
+uv pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121 --force-reinstall
+
+# CUDA 11.8
+uv pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118 --force-reinstall
+```
+
+#### 验证 GPU 是否可用
+
+```bash
+# 使用 .venv 中的 python 直接运行（不要用 uv run，会触发 sync 覆盖 GPU 版本）
+# Windows
+.venv\Scripts\python.exe -c "import torch; print('CUDA:', torch.cuda.is_available(), torch.__version__)"
+
+# macOS / Linux
+.venv/bin/python -c "import torch; print('CUDA:', torch.cuda.is_available(), torch.__version__)"
+
+# 应该输出类似：CUDA: True 2.6.0+cu124
+```
+
+> **注意**：安装 GPU 版本后，**不要再运行 `uv sync`**，否则会被覆盖回 CPU 版本。如需添加新依赖，使用 `uv pip install <package>` 或 `uv add <package>`。
 
 
 
@@ -204,14 +208,17 @@ uv run python main.py
 ### 启动 GUI
 
 ```bash
-# 使用 uv
+# Windows（推荐，保留 GPU 支持）
+.venv\Scripts\python.exe main.py
+
+# 或双击 run_gpu.bat（GPU 用户推荐）
+# 或双击 run.vbs（无控制台窗口）
+
+# macOS / Linux
+.venv/bin/python main.py
+
+# CPU 用户可以使用 uv run（会自动 sync）
 uv run python main.py
-
-# 或直接运行
-python main.py
-
-# 或使用安装后的命令
-math-digitizer
 ```
 
 Windows 用户也可以双击 `run.vbs` 启动（无控制台窗口）。

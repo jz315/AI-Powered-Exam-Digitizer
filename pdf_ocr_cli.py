@@ -27,6 +27,9 @@ def main():
         choices=list(LAYOUT_MODEL_LABELS.keys()),
         help="布局模型: " + ", ".join(LAYOUT_MODEL_LABELS.keys()),
     )
+    parser.add_argument("--auto-outside-ratio", type=float, default=0.01, help="Auto router: text outside ratio")
+    parser.add_argument("--auto-min-text-ratio", type=float, default=0.0005, help="Auto router: min text ratio")
+    parser.add_argument("--auto-min-component-area", type=int, default=30, help="Auto router: min component area")
 
     args = parser.parse_args()
 
@@ -51,7 +54,14 @@ def main():
     label = layout_model_label_from_key(args.layout_model)
     print(f"正在加载布局模型: {label} ...")
     try:
-        extractor = create_layout_extractor(args.layout_model)
+        auto_cfg = None
+        if args.layout_model == "auto_router":
+            auto_cfg = {
+                "text_outside_ratio": args.auto_outside_ratio,
+                "min_text_ratio": args.auto_min_text_ratio,
+                "min_component_area": args.auto_min_component_area,
+            }
+        extractor = create_layout_extractor(args.layout_model, auto_router_config=auto_cfg)
     except Exception as e:
         print(f"模型加载失败: {e}")
         sys.exit(1)

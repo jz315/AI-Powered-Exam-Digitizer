@@ -35,18 +35,14 @@ dependencies = [
     "dill>=0.4.0",
     "gradio>=6.3.0",
     "openai>=1.0.0",
+    # PyTorch - 通过 tool.uv.sources 指定 index
+    "torch>=2.0.0",
+    "torchvision>=0.15.0",
 ]
 
 [project.optional-dependencies]
-# torch 需要用户根据自己的环境单独安装（GPU 或 CPU 版本）
-dev = [
-    "pytest>=7.0.0",
-    "pyinstaller>=6.0.0",
-]
-layout_pp = [
-    "paddlepaddle",
-    "paddleocr",
-]
+dev = ["pytest>=7.0.0", "pyinstaller>=6.0.0"]
+layout_pp = ["paddlepaddle", "paddleocr"]
 
 [project.urls]
 Homepage = "https://github.com/jz315/AI-Powered-Exam-Digitizer"
@@ -63,3 +59,22 @@ py-modules = ["main", "pdf_ocr_cli"]
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["src*"]
+
+# ============================================
+# uv PyTorch 配置
+# 参考: https://docs.astral.sh/uv/guides/integration/pytorch/
+# ============================================
+
+# Windows 使用 CUDA 12.4，macOS 使用 CPU（PyPI 默认）
+[tool.uv.sources]
+torch = [
+    { index = "pytorch-cu124", marker = "sys_platform == 'win32'" },
+]
+torchvision = [
+    { index = "pytorch-cu124", marker = "sys_platform == 'win32'" },
+]
+
+[[tool.uv.index]]
+name = "pytorch-cu124"
+url = "https://download.pytorch.org/whl/cu124"
+explicit = true
