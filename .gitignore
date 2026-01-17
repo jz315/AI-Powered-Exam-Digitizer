@@ -6,7 +6,7 @@ dist/
 wheels/
 *.egg-info
 output/
-temp_build/
+
 
 # LaTeX build artifacts
 *.aux

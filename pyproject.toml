@@ -45,7 +45,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=7.0.0", "pyinstaller>=6.0.0"]
+dev = ["pytest>=7.0.0"]
 layout_pp = ["paddlepaddle", "paddleocr"]
 
 [project.urls]
@@ -55,14 +55,14 @@ Issues = "https://github.com/jz315/AI-Powered-Exam-Digitizer/issues"
 
 [project.scripts]
 math-digitizer = "main:main"
-pdf-layout = "pdf_ocr_cli:main"
 
 [tool.setuptools]
-py-modules = ["main", "pdf_ocr_cli"]
+py-modules = ["main"]
 
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["math_digitizer*"]
+exclude = ["output", "output.*", "temp_build", "temp_build.*", ".venv", ".venv.*", "dist", "build"]
 
 # ============================================
 # uv PyTorch 配置
@@ -70,13 +70,13 @@ include = ["math_digitizer*"]
 # ============================================
 
 # Windows 使用 CUDA 12.4，macOS 使用 CPU（PyPI 默认）
-[tool.uv.sources]
-torch = [
-    { index = "pytorch-cu124", marker = "sys_platform == 'win32'" },
-]
-torchvision = [
-    { index = "pytorch-cu124", marker = "sys_platform == 'win32'" },
-]
+# [tool.uv.sources]
+# torch = [
+#     { index = "pytorch-cu124", marker = "sys_platform == 'win32'" },
+# ]
+# torchvision = [
+#     { index = "pytorch-cu124", marker = "sys_platform == 'win32'" },
+# ]
 
 [[tool.uv.index]]
 name = "pytorch-cu124"

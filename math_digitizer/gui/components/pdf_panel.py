@@ -75,6 +75,14 @@ class PdfOcrMixin:
         if not hasattr(self, "_deepseek_keys") or not isinstance(self._deepseek_keys, dict):
             self._deepseek_keys = {}
 
+    def _ensure_ocr_keys(self):
+        if not hasattr(self, "_ocr_keys") or not isinstance(self._ocr_keys, dict):
+            self._ocr_keys = {}
+
+    def _ensure_ocr_models(self):
+        if not hasattr(self, "_ocr_models") or not isinstance(self._ocr_models, dict):
+            self._ocr_models = {}
+
     def _get_ocr_provider(self) -> str:
         return (self.ocr_provider_var.get() or "gemini").strip().lower()
 
@@ -95,17 +103,37 @@ class PdfOcrMixin:
             return keyring_key
         return self._env_ocr_key(provider)
 
+    def _default_ocr_model(self, provider: str) -> str:
+        if provider == "aliyun":
+            return "qwen3-vl-plus"
+        return "gemini-3-flash-preview"
+
     def _apply_ocr_provider(self, provider: str | None = None, save: bool = True):
+        self._ensure_ocr_keys()
+        self._ensure_ocr_models()
         new_provider = (provider or self._get_ocr_provider()).strip().lower()
-        key = self._get_ocr_api_key(new_provider)
+        old_provider = getattr(self, "_ocr_provider_current", None)
+        if old_provider:
+            current_key = (self.entry_gemini_key.get() or "").strip()
+            if current_key:
+                self._ocr_keys[old_provider] = current_key
+            current_model = (self.entry_gemini_model.get() or "").strip()
+            if current_model:
+                self._ocr_models[old_provider] = current_model
+
+        key = (
+            self._ocr_keys.get(new_provider)
+            or (get_api_key(SecretKey.DASHSCOPE) if new_provider == "aliyun" else get_api_key(SecretKey.GEMINI))
+            or self._env_ocr_key(new_provider)
+        )
         self.entry_gemini_key.delete(0, "end")
         if key:
             self.entry_gemini_key.insert(0, key)
-        if new_provider == "aliyun":
-            current_model = (self.entry_gemini_model.get() or "").strip()
-            if not current_model or current_model.startswith("gemini"):
-                self.entry_gemini_model.delete(0, "end")
-                self.entry_gemini_model.insert(0, "qwen3-vl-plus")
+        model = self._ocr_models.get(new_provider) or self._default_ocr_model(new_provider)
+        self.entry_gemini_model.delete(0, "end")
+        if model:
+            self.entry_gemini_model.insert(0, model)
+        self._ocr_provider_current = new_provider
         if save:
             self._save_pdf_ocr_config()
 
@@ -659,16 +687,17 @@ class PdfOcrMixin:
         try:
             config = get_config()
             self._deepseek_keys = {}
+            self._ocr_keys = {}
+            self._ocr_models = {}
             
             if config.ocr.provider in ["gemini", "aliyun"]:
                 self.ocr_provider_var.set(config.ocr.provider)
 
+            if config.gemini.model:
+                self._ocr_models["gemini"] = config.gemini.model
+
             self._apply_ocr_provider(save=False)
 
-            if config.gemini.model:
-                self.entry_gemini_model.delete(0, "end")
-                self.entry_gemini_model.insert(0, config.gemini.model)
-            
             if config.deepseek.provider in ["modelverse", "siliconflow", "custom"]:
                 self.deepseek_provider_var.set(config.deepseek.provider)
             if config.deepseek.base_url:
@@ -706,7 +735,8 @@ class PdfOcrMixin:
             config = get_config()
             
             config.ocr.provider = self._get_ocr_provider()
-            config.gemini.model = self.entry_gemini_model.get().strip() or config.gemini.model
+            if config.ocr.provider == "gemini":
+                config.gemini.model = self.entry_gemini_model.get().strip() or config.gemini.model
             config.deepseek.provider = self.deepseek_provider_var.get().strip()
             config.deepseek.base_url = self.entry_deepseek_base_url.get().strip()
             config.deepseek.keys_by_provider = {}

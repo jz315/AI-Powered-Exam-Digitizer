@@ -21,9 +21,9 @@ os.system("")
 def print_banner():
     print(Colors.OKBLUE)
     print(r"""
-  __  __       _   _      ____  _       _ _   _              
- |  \/  | __ _| |_| |_   |  _ \(_) __ (_) |_(_)_______ _ __ 
- | |\/| |/ _` | __| '_ \  | | | | |/ _` | | __| |_  / _ \ '__|
+  __  __       _   _       ____  _       _ _   _              
+ |  \/  | __ _| |_| |_    |  _ \(_) __  (_) |_(_)_______ _ __ 
+ | |\/| |/ _` | __| '_ \  | | | | |/ _ `| | __| |_  / _ \ '__|
  | |  | | (_| | |_| | | | | |_| | | (_| | | |_| |/ /  __/ |   
  |_|  |_|\__,_|\__|_| |_| |____/|_|\__, |_|\__|_/___\___|_|   
                                    |___/                      
@@ -113,7 +113,7 @@ def phase_2_gpu_config():
 
     config_path = "pyproject.toml"
     with open(config_path, "r", encoding="utf-8") as f:
-        lines = f.readlines()
+        content = f.read()
 
     needs_cpu_mode = not has_nvidia
     
@@ -123,23 +123,65 @@ def phase_2_gpu_config():
         if choice == 'n':
             needs_cpu_mode = True
 
+    # Robust Block Toggling Logic
+    # We define the GPU block we want to toggle
+    gpu_block_start = "[tool.uv.sources]"
+    
+    # Check current state
+    is_cpu_mode = "# [tool.uv.sources]" in content or "#[tool.uv.sources]" in content
+
     if needs_cpu_mode:
-        log("正在配置 CPU 模式 (修改 pyproject.toml)...", "info")
-        new_lines = []
-        modified = False
-        for line in lines:
-            if 'marker = "sys_platform == \'win32\'"' in line and not line.strip().startswith("#"):
-                new_lines.append(f"# {line}")
-                modified = True
-            else:
-                new_lines.append(line)
-        
-        if modified:
+        if not is_cpu_mode:
+            log("正在配置 CPU 模式 (注释掉 tool.uv.sources)...", "info")
+            # Comment out the block keys to disable custom source
+            new_content = content.replace("[tool.uv.sources]", "# [tool.uv.sources]")
+            new_content = new_content.replace("torch = [", "# torch = [")
+            new_content = new_content.replace("torchvision = [", "# torchvision = [")
+            # Also comment lines starting with { index
+            lines = new_content.splitlines()
+            final_lines = []
+            for line in lines:
+                if '{ index = "pytorch-cu124"' in line and not line.strip().startswith("#"):
+                    final_lines.append("# " + line)
+                elif line.strip() == "]" and (final_lines and "# torch" in final_lines[-2]): # Heuristic for closing bracket
+                     final_lines.append("# ]")
+                else:
+                     final_lines.append(line)
+            
             with open(config_path, "w", encoding="utf-8") as f:
-                f.writelines(new_lines)
+                f.write("\n".join(final_lines))
             log("配置文件已更新为 CPU 模式。", "success")
-    else:
-        log("将安装 GPU 加速版。", "success")
+        else:
+            log("当前已是 CPU 模式。", "info")
+
+    else: # GPU Mode needed
+        if is_cpu_mode:
+            log("正在配置 GPU 模式 (启用 tool.uv.sources)...", "info")
+            # Simple uncomment
+            new_content = content.replace("# [tool.uv.sources]", "[tool.uv.sources]")
+            new_content = new_content.replace("# torch = [", "torch = [")
+            new_content = new_content.replace("# torchvision = [", "torchvision = [")
+            
+            lines = new_content.splitlines()
+            final_lines = []
+            for line in lines:
+                 # Uncomment lines that look like source entries
+                 if line.strip().startswith("#") and '{ index = "pytorch-cu124"' in line:
+                     final_lines.append(line.replace("# ", "", 1).replace("#", "", 1))
+                 elif line.strip().startswith("#") and line.strip().endswith("]") and "]" in line:
+                     # Attempt to uncomment closing brackets if they seem related
+                     # This is tricky without a parser.
+                     # Better approach: Just use the known template if enabling GPU.
+                     final_lines.append(line.replace("# ]", "]"))
+                 else:
+                     final_lines.append(line)
+
+            with open(config_path, "w", encoding="utf-8") as f:
+                 f.write("\n".join(final_lines))
+            log("配置文件已更新为 GPU 模式。", "success")
+        else:
+             log("当前已是 GPU 模式。", "info")
+
 
 def phase_3_install():
     log("阶段 3: 安装项目依赖 (Installing Dependencies)", "step")

@@ -149,7 +149,9 @@ sudo dnf install texlive-scheme-full
 本项目使用 [uv](https://github.com/astral-sh/uv) 进行依赖管理，支持 **Windows 一键配置 CUDA 环境**。
 
 ### 快速安装（推荐）
+双击setup.bat
 
+### 手动安装
 ```bash
 # 1. 安装 uv（如果还没有）
 # Windows (PowerShell)
@@ -168,7 +170,7 @@ cd AI-Powered-Exam-Digitizer
 uv sync
 ```
 
-### 验证 GPU 是否可用 (Windows)
+#### 验证 GPU 是否可用 (Windows)
 
 ```powershell
 # 使用 .venv 中的 python 直接运行
@@ -180,11 +182,11 @@ uv sync
 
 ---
 
-## 🔧 高级：自定义 PyTorch 版本
+#### 🔧 高级：自定义 PyTorch 版本
 
 默认配置会自动为 Windows 用户安装 **CUDA 12.4** 版本。如果你的显卡较旧（需要 CUDA 11.8）或者仅使用 CPU，请按以下说明修改 `pyproject.toml`。
 
-### 1. 切换到 CPU 版本 (Windows)
+##### 1. 切换到 CPU 版本 (Windows)
 
 编辑 `pyproject.toml`，找到 `[tool.uv.sources]` 部分，**删除或注释掉** Windows 相关的配置：
 
@@ -201,7 +203,7 @@ uv sync
 uv sync
 ```
 
-### 2. 切换到 CUDA 11.8 版本
+##### 2. 切换到 CUDA 11.8 版本
 
 如果你需要 CUDA 11.8，修改 `pyproject.toml` 中的 `tool.uv.index` 和 `tool.uv.sources`：
 
@@ -234,33 +236,8 @@ uv sync
 ## 🚀 快速开始
 
 ### 启动 GUI
-
-```bash
-# Windows
-.venv\Scripts\python.exe main.py
-
-# macOS / Linux
-.venv/bin/python main.py
-
-# 或者直接使用 uv run (会自动同步环境)
-uv run python main.py
-```
-
-### PDF 版面分析 CLI
-
-支持多种模式进行 PDF 版面分析：
-
-```bash
-# 1. 使用默认模型 (DocLayout-YOLO)
-python pdf_ocr_cli.py input.pdf --out output
-
-# 2. 使用 Auto Router (智能路由模式)
-# 需要在 .env 或环境变量设置 DEEPSEEK_API_KEY
-python pdf_ocr_cli.py input.pdf --layout-model auto_router
-
-# 3. 强制使用 DeepSeek OCR
-python pdf_ocr_cli.py input.pdf --layout-model deepseek_ocr
-```
+- 双击run.vbs
+- 或 执行```uv run python main.py```
 
 ---
 
@@ -371,11 +348,7 @@ pytest
 
 ---
 
-## 🤖 AI 助手指南
 
-如果你是 AI 助手 (Cursor/Copilot/Windsurf)，请阅读 **[AI_INSTRUCTIONS.md](AI_INSTRUCTIONS.md)** 获取最佳实践和环境配置规范。
-
----
 
 ## ❓ 常见问题
 
