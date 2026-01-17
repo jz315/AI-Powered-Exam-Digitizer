@@ -480,13 +480,17 @@ class UiMixin:
 
     def copy_prompt(self):
         try:
-            if os.path.exists(self.prompt_file):
-                with open(self.prompt_file, 'r', encoding='utf-8') as f: pyperclip.copy(f.read())
+            prompt_path = self.prompt_file
+            if os.path.exists(prompt_path):
+                with open(prompt_path, 'r', encoding='utf-8') as f:
+                    pyperclip.copy(f.read())
                 self.flash_status("✅ 提示词已成功复制！")
             else:
-                self.flash_status(f"❌ 错误：找不到文件 {self.prompt_file}")
+                self.flash_status(f"❌ 错误：找不到文件 {prompt_path}")
+                self._append_log(f"[error] prompt file not found: {prompt_path}")
         except Exception as e:
             self.flash_status(f"❌ 复制出错: {e}")
+            self._append_log(f"[error] copy_prompt failed: {e}")
 
     def open_image_tool(self):
         if self._image_tool is None or not self._image_tool.winfo_exists():
