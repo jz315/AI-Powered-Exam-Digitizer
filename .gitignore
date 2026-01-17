@@ -17,7 +17,8 @@ output/
 *.fdb_latexmk
 *.synctex.gz
 *.xelatex.txt
-
+*.xdv
+*.bak0
 # Virtual environments
 .venv
 .venv-gpu

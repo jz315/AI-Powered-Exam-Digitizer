@@ -101,7 +101,7 @@
 
 \subsection{Windows 用户}
 
-推荐安装 \textbf{TeX Live}：
+安装 \textbf{TeX Live} （不推荐）：
 
 \begin{enumerate}
 	\item 打开浏览器，访问：\url{https://tug.org/texlive/acquire-netinstall.html}
@@ -122,7 +122,7 @@
 	\item 如果显示版本信息，说明安装成功
 \end{enumerate}
 
-\subsection{如果您使用 MiKTeX}
+\subsection{如果您使用 MiKTeX（推荐）}
 
 MiKTeX 是另一个选择，体积更小：
 \begin{enumerate}
@@ -163,7 +163,7 @@ MiKTeX 是另一个选择，体积更小：
 
 \subsection{版面分析服务：硅基流动 API Key（推荐）}
 
-如果您使用 \textbf{Auto Router} 或 \textbf{DeepSeek OCR} 版面分析模式，需要配置 DeepSeek 服务。
+如果您使用 \textbf{Auto} 或 \textbf{DeepSeek OCR} 版面分析模式，需要配置 DeepSeek 服务。
 
 \textbf{推荐使用硅基流动}（国内可直接访问）：
 
@@ -223,17 +223,83 @@ MiKTeX 是另一个选择，体积更小：
 % =========================================================
 \chapter{安装软件}
 
+\section{国内用户：配置镜像源（重要）}
+
+\begin{WarnBox}
+	\textbf{国内用户必读}：由于网络原因，直接安装可能会非常慢或失败。请先按以下步骤配置国内镜像源。
+\end{WarnBox}
+
+本软件使用 \texttt{uv} 包管理器安装依赖。国内用户需要配置镜像源以加速下载。
+
+\subsection{配置 uv 镜像源}
+
+\begin{enumerate}
+	\item 按 \texttt{Win + R} 键，输入 \texttt{cmd}，按回车打开命令行
+	\item 依次输入以下两条命令（每条命令输入后按回车）：
+\end{enumerate}
+
+\begin{lstlisting}[language=bash]
+setx UV_INDEX_URL https://mirrors.aliyun.com/pypi/simple/
+setx UV_EXTRA_INDEX_URL https://download.pytorch.org/whl/cu124
+\end{lstlisting}
+
+\begin{enumerate}
+	\setcounter{enumi}{2}
+	\item \textbf{关闭命令行窗口，重新打开一个新的命令行窗口}（环境变量需要重新加载）
+\end{enumerate}
+
+\begin{TipBox}
+	这两条命令的作用：
+	\begin{itemize}
+		\item 第一条：将 Python 包下载源设置为阿里云镜像（国内速度快）
+		\item 第二条：添加 PyTorch 官方源（用于下载 GPU 版本）
+	\end{itemize}
+	配置完成后，后续安装会自动使用国内镜像。
+\end{TipBox}
+
+\subsection{备选镜像源}
+
+如果阿里云镜像不稳定，可以尝试其他镜像：
+
+\begin{center}
+	\begin{tabular}{ll}
+		\toprule
+		\textbf{镜像名称} & \textbf{地址}                                        \\
+		\midrule
+		阿里云（推荐）       & \texttt{https://mirrors.aliyun.com/pypi/simple/}   \\
+		清华大学          & \texttt{https://pypi.tuna.tsinghua.edu.cn/simple/} \\
+		中国科技大学        & \texttt{https://pypi.mirrors.ustc.edu.cn/simple/}  \\
+		豆瓣            & \texttt{https://pypi.douban.com/simple/}           \\
+		\bottomrule
+	\end{tabular}
+\end{center}
+
 \section{快速安装}
+
+配置好镜像源后，开始安装：
 
 \begin{enumerate}
 	\item 找到软件文件夹中的 \texttt{setup.bat} 文件
 	\item 双击运行它
-	\item 等待安装完成（会自动下载所需组件）
+	\item 等待安装完成（首次安装需要下载约 2-4GB 依赖，请耐心等待）
 \end{enumerate}
 
 \begin{TipBox}
-	安装过程中会出现黑色命令行窗口，这是正常现象，请勿关闭。安装完成后窗口会自动关闭。
+	安装过程中会出现黑色命令行窗口，这是正常现象，请勿关闭。
+	\begin{itemize}
+		\item 安装程序会询问是否安装 GPU 支持，如果您有 NVIDIA 显卡，建议选择 Y
+		\item 如果下载速度很慢，请检查是否正确配置了镜像源
+	\end{itemize}
 \end{TipBox}
+
+\begin{WarnBox}
+	\textbf{安装失败怎么办？}
+	\begin{itemize}
+		\item 检查网络连接是否正常
+		\item 确认已配置镜像源并\textbf{重新打开}了命令行窗口
+		\item 尝试删除软件目录下的 \texttt{.venv} 文件夹，然后重新运行 \texttt{setup.bat}
+	\end{itemize}
+\end{WarnBox}
 
 \section{启动软件}
 
@@ -414,7 +480,7 @@ MiKTeX 是另一个选择，体积更小：
 		DS Provider  & DeepSeek 服务提供商。\textbf{国内用户请选择 \texttt{siliconflow}（硅基流动）} \\
 		DeepSeek Key & 硅基流动的 API Key（在硅基流动官网获取）                                   \\
 		Router Mode  & Auto Router 的决策模式，通常保持默认                                   \\
-		Gemini Probe & 启用 Gemini 辅助判断（国内用户可不勾选）                               \\
+		Gemini Probe & 启用 Gemini 辅助判断（国内用户可不勾选）                                   \\
 		\bottomrule
 	\end{tabular}
 \end{center}
@@ -563,11 +629,11 @@ MiKTeX 是另一个选择，体积更小：
 \begin{center}
 	\begin{tabular}{llp{5cm}}
 		\toprule
-		\textbf{名称} & \textbf{网址}       & \textbf{特点}  \\
+		\textbf{名称} & \textbf{网址}       & \textbf{特点} \\
 		\midrule
-		ChatGPT     & chat.openai.com   & 综合能力强   \\
-		Claude      & claude.ai         & 对长文本处理好 \\
-		Gemini      & gemini.google.com & 免费额度多   \\
+		ChatGPT     & chat.openai.com   & 综合能力强       \\
+		Claude      & claude.ai         & 对长文本处理好     \\
+		Gemini      & gemini.google.com & 免费额度多       \\
 		\bottomrule
 	\end{tabular}
 \end{center}
