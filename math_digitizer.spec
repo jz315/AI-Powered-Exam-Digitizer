@@ -5,16 +5,15 @@ from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 
 block_cipher = None
 
-SRC_PATH = os.path.join(SPECPATH, "src")
 RUNTIME_HOOKS = [os.path.join(SPECPATH, "runtime_hooks", "stdio_fix.py")]
 
 ctk_datas = collect_data_files("customtkinter")
 doclayout_datas = collect_data_files("doclayout_yolo")
 
 project_datas = [
-    (os.path.join(SPECPATH, "src", "exam_template.txt"), "src"),
-    (os.path.join(SPECPATH, "src", "prompt.md"), "src"),
-    (os.path.join(SPECPATH, "src", "prompt_english.md"), "src"),
+    (os.path.join(SPECPATH, "math_digitizer", "resources", "exam_template.txt"), "math_digitizer/resources"),
+    (os.path.join(SPECPATH, "math_digitizer", "resources", "prompt.md"), "math_digitizer/resources"),
+    (os.path.join(SPECPATH, "math_digitizer", "resources", "prompt_english.md"), "math_digitizer/resources"),
 ]
 
 for model_path in glob.glob(os.path.join(SPECPATH, "layout_models", "*.pt")):
@@ -28,25 +27,37 @@ hiddenimports = [
     "google.genai",
     "dill",
     "huggingface_hub",
-    "gui",
-    "gui_app",
-    "gui_deps",
-    "gui_mixins",
-    "gui_ocr",
-    "gui_theme",
-    "generator",
-    "validator",
-    "layout_engine",
-    "app_paths",
-    "image_preprocess",
-    "photo_process",
+    # math_digitizer package
+    "math_digitizer",
+    "math_digitizer.app_paths",
+    "math_digitizer.generator",
+    "math_digitizer.validator",
+    "math_digitizer.layout_engine",
+    "math_digitizer.photo_process",
+    # math_digitizer.gui subpackage
+    "math_digitizer.gui",
+    "math_digitizer.gui.app",
+    "math_digitizer.gui.deps",
+    "math_digitizer.gui.theme",
+    "math_digitizer.gui.ocr",
+    # math_digitizer.gui.mixins subpackage
+    "math_digitizer.gui.mixins",
+    "math_digitizer.gui.mixins.ui",
+    "math_digitizer.gui.mixins.pdf_ocr",
+    "math_digitizer.gui.mixins.editor",
+    "math_digitizer.gui.mixins.log",
+    "math_digitizer.gui.mixins.generation",
+    "math_digitizer.gui.mixins.status",
+    # math_digitizer.tools subpackage
+    "math_digitizer.tools",
+    "math_digitizer.tools.image_preprocess",
 ]
 
 hiddenimports += collect_submodules("doclayout_yolo")
 
 a = Analysis(
     ["main.py"],
-    pathex=[SPECPATH, SRC_PATH],
+    pathex=[SPECPATH],
     binaries=[],
     datas=ctk_datas + doclayout_datas + project_datas,
     hiddenimports=hiddenimports,

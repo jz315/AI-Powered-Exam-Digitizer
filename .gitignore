@@ -32,3 +32,4 @@ layout_models/*.pt
 # Misc
 *.zip
 nul
+.VSCodeCounter/

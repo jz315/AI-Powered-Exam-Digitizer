@@ -28,12 +28,6 @@ def main() -> None:
     _fix_stdio_for_frozen()
     _ensure_utf8_stdio()
 
-    # 源码运行时需要添加 src 目录到路径
-    if not getattr(sys, 'frozen', False):
-        repo_root = Path(__file__).resolve().parent
-        src_dir = repo_root / "src"
-        sys.path.insert(0, str(src_dir))
-
     # Windows 高分屏适配
     try:
         import ctypes
@@ -42,7 +36,7 @@ def main() -> None:
     except Exception:
         pass
 
-    from gui import PremiumExamApp
+    from math_digitizer.gui import PremiumExamApp
 
     app = PremiumExamApp()
     app.mainloop()

@@ -35,6 +35,10 @@ dependencies = [
     "dill>=0.4.0",
     "gradio>=6.3.0",
     "openai>=1.0.0",
+    # Config management
+    "pydantic>=2.0.0",
+    "platformdirs>=4.0.0",
+    "keyring>=25.0.0",
     # PyTorch - 通过 tool.uv.sources 指定 index
     "torch>=2.0.0",
     "torchvision>=0.15.0",
@@ -58,7 +62,7 @@ py-modules = ["main", "pdf_ocr_cli"]
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["src*"]
+include = ["math_digitizer*"]
 
 # ============================================
 # uv PyTorch 配置
@@ -78,3 +82,6 @@ torchvision = [
 name = "pytorch-cu124"
 url = "https://download.pytorch.org/whl/cu124"
 explicit = true
+
+[tool.setuptools.package-data]
+math_digitizer = ["resources/*.txt", "resources/*.md"]
