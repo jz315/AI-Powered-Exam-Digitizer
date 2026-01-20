@@ -7,13 +7,13 @@ import customtkinter as ctk
 
 from math_digitizer.utils.paths import get_resource_path
 from math_digitizer.gui.services.deps import ExamGenerator, validate_json_and_latex
-from math_digitizer.gui.components import UiMixin, PdfOcrMixin, EditorMixin, LogMixin, GenerationMixin, StatusMixin
+from math_digitizer.gui.components import UiMixin, PdfOcrMixin, EditorMixin, LogMixin, GenerationMixin, StatusMixin, BankMixin
 from math_digitizer.gui.theme import Theme
 
 ctk.set_appearance_mode("System")
 ctk.set_default_color_theme("blue")
 
-class PremiumExamApp(ctk.CTk, UiMixin, PdfOcrMixin, EditorMixin, LogMixin, GenerationMixin, StatusMixin):
+class PremiumExamApp(ctk.CTk, UiMixin, PdfOcrMixin, EditorMixin, LogMixin, GenerationMixin, StatusMixin, BankMixin):
     def __init__(self):
         super().__init__()
         Theme.init_fonts(self, base_dir=os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir)))

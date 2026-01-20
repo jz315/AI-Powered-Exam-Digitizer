@@ -15,6 +15,7 @@
 - [🚀 快速开始](#-快速开始)
 - [📖 使用流程](#-使用流程)
 - [📄 JSON 数据格式示例](#-json-数据格式示例)
+- [🧩 组卷系统（题库 + 规则）](#-组卷系统题库--规则)
 - [📂 项目结构](#-项目结构)
 - [🔨 开发者指南](#-开发者指南)
 - [🤖 AI 助手指南](AI_INSTRUCTIONS.md)
@@ -298,6 +299,72 @@ uv sync
 
 ---
 
+## 🧩 组卷系统（题库 + 规则）
+
+你可以使用题库 + 规则自动组卷，并直接生成可导出的 JSON（与模板完全兼容）。
+
+### 1) 题库格式（示例）
+
+```json
+{
+  "meta": { "subject": "Math" },
+  "questions": [
+    {
+      "id": "SC001",
+      "type": "single_choice",
+      "difficulty": "easy",
+      "tags": ["functions"],
+      "content": "若 $f(x)=x^2$，则 $f'(x)=$ __BLANK__。",
+      "options": ["$x$", "$2x$", "$x^2$", "$2$"]
+    }
+  ]
+}
+```
+
+> 题库也支持直接使用“已有试卷 JSON（sections/questions）”，系统会自动扁平化提取题目。
+
+### 2) 组卷规则（示例）
+
+```json
+{
+  "meta": { "title": "Sample Exam", "subject": "Math" },
+  "seed": 42,
+  "sections": [
+    { "title": "选择题", "type": "single_choice", "count": 10, "difficulty": { "easy": 4, "medium": 4, "hard": 2 } },
+    { "title": "填空题", "type": "fill", "count": 5, "tags": ["functions", "calculus"] },
+    { "title": "解答题", "type": "problem", "count": 3 }
+  ]
+}
+```
+
+可选字段说明（简要）：
+
+- `include_ids` / `exclude_ids`：指定必选或排除题目 ID
+- `tags` / `exclude_tags` + `tag_mode`（`any`/`all`）：标签筛选
+- `difficulty`：可用 `easy/medium/hard`，也支持数值（0~1、1~5、1~10）
+- `strict`：`false` 时允许“题目不足”只报 warning
+- `allow_reuse`：允许同题重复出现在多个 section
+
+### 3) GUI 使用方式
+
+在 **“题库与组卷”** 页可以：
+
+- 一键从编辑器导入题库（自动扁平化）
+- 筛选 + 勾选题目手动组卷
+- 使用规则 JSON 自动组卷
+
+默认题库路径：`output/question_bank/question_bank.json`  
+图片会自动拷贝到：`output/question_bank/assets` 并重写引用，避免丢图。
+
+### 4) CLI 使用方式
+
+```bash
+# 生成输出文件到 output/assembled/
+uv run python -m math_digitizer.core.paper_builder --bank examples/question_bank.sample.json --spec examples/paper_spec.sample.json
+```
+
+---
+
 ## 📂 项目结构
 
 ```
@@ -317,6 +384,7 @@ uv sync
 │   └── resources/              # 静态资源
 │       ├── exam_template.txt   # Jinja2 LaTeX 模板
 │       └── prompt.md           # LLM 提示词
+├── examples/                   # 组卷系统示例数据
 └── output/                     # 生成结果目录
 ```
 
@@ -373,4 +441,3 @@ Auto Router 模式下，如果本地模型跑得慢，可以配置 DeepSeek API 
 ## 📜 License
 
 MIT
-

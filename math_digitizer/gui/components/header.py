@@ -124,7 +124,7 @@ class UiMixin:
         self.tabview = ctk.CTkTabview(self, corner_radius=Theme.CORNER_RADIUS_L)
         self.tabview.grid(row=1, column=0, sticky="nsew", padx=Theme.PAD_OUTER, pady=(0, Theme.PAD_OUTER))
         
-        # 创建三个主要选项卡
+        # 创建主要选项卡
         self.tab_ocr = self.tabview.add(" 1. 智能提取 (OCR) ")
         self.tab_edit = self.tabview.add(" 2. 数据编辑 (Editor) ")
         self.tab_export = self.tabview.add(" 3. 导出与工具 (Export) ")
@@ -132,7 +132,7 @@ class UiMixin:
         # 配置 Tab 内部布局
         self.tab_ocr.grid_columnconfigure(0, weight=1)
         self.tab_edit.grid_columnconfigure(0, weight=1)
-        self.tab_edit.grid_rowconfigure(1, weight=1) # 编辑器占满
+        self.tab_edit.grid_rowconfigure(2, weight=1) # 编辑器占满
         self.tab_export.grid_columnconfigure(0, weight=1)
         self.tab_export.grid_columnconfigure(1, weight=1)
 
@@ -332,9 +332,11 @@ class UiMixin:
         
         btn_box = ctk.CTkFrame(res_frame, fg_color="transparent")
         btn_box.pack()
-        self.btn_copy_pdf_ocr = ctk.CTkButton(btn_box, text="📋 复制完整文本", command=self.copy_pdf_ocr_result, state="disabled", width=140)
+        self.btn_copy_prompt_and_ocr = ctk.CTkButton(btn_box, text="📋 复制提示词+OCR", command=self.copy_prompt_and_ocr, state="disabled", width=160, fg_color=Theme.COLOR_GREEN_BTN)
+        self.btn_copy_prompt_and_ocr.pack(side="left", padx=5)
+        self.btn_copy_pdf_ocr = ctk.CTkButton(btn_box, text="📋 仅复制OCR", command=self.copy_pdf_ocr_result, state="disabled", width=120)
         self.btn_copy_pdf_ocr.pack(side="left", padx=5)
-        self.btn_open_pdf_ocr_dir = ctk.CTkButton(btn_box, text="📂 打开输出目录", command=self.open_pdf_ocr_output_dir, state="disabled", width=140)
+        self.btn_open_pdf_ocr_dir = ctk.CTkButton(btn_box, text="📂 打开目录", command=self.open_pdf_ocr_output_dir, state="disabled", width=100)
         self.btn_open_pdf_ocr_dir.pack(side="left", padx=5)
 
         self._load_pdf_ocr_config()
@@ -350,6 +352,15 @@ class UiMixin:
 
         self.btn_copy = ctk.CTkButton(top_bar, text="Copy OCR Prompt", command=self.copy_prompt, fg_color=Theme.COLOR_BLUE_BTN, width=150)
         self.btn_copy.pack(side="right")
+
+        self.btn_import_bank = ctk.CTkButton(
+            top_bar, 
+            text="📥 导入到题库", 
+            command=self._start_import_from_editor,
+            fg_color=Theme.COLOR_GREEN_BTN, 
+            width=120
+        )
+        self.btn_import_bank.pack(side="right", padx=(0, 10))
 
         # 分割布局：上部是编辑器（权重高），下部是校验信息（权重低）
         paned = ctk.CTkFrame(self.tab_edit, fg_color="transparent")
@@ -400,6 +411,7 @@ class UiMixin:
         # Card 2: 图片工具
         card_img = self.create_card(left_col, "🧼 图片处理", "二值化与去噪工具")
         ctk.CTkButton(card_img, text="🖼️ 打开图片预处理工具", command=self.open_image_tool, fg_color=Theme.COLOR_BLUE_BTN).pack(fill="x", padx=15, pady=15)
+
         
         # 右列：生成设置与日志
         right_col = ctk.CTkFrame(self.tab_export, fg_color="transparent")
@@ -409,13 +421,6 @@ class UiMixin:
         card_gen = self.create_card(right_col, "⚙️ 导出设置", "设置文件名并生成")
         self.entry_filename = ctk.CTkEntry(card_gen, placeholder_text="文件名 (留空则自动读取JSON标题)")
         self.entry_filename.pack(fill="x", padx=15, pady=(15, 10))
-        
-        img_dir_frame = ctk.CTkFrame(card_gen, fg_color="transparent")
-        img_dir_frame.pack(fill="x", padx=15, pady=(0, 10))
-        ctk.CTkLabel(img_dir_frame, text="图片目录:", width=70, anchor="w").pack(side="left")
-        self.entry_image_dir = ctk.CTkEntry(img_dir_frame, placeholder_text="OCR 输出目录 (自动填充)")
-        self.entry_image_dir.pack(side="left", fill="x", expand=True, padx=(0, 5))
-        ctk.CTkButton(img_dir_frame, text="📂", width=32, command=self._select_image_dir).pack(side="left")
         
         self.btn_generate = ctk.CTkButton(card_gen, text="✨ 生成 PDF 文件", command=self.start_generation_thread, height=50, font=(Theme.FONT_FAMILY_BOLD[0], 16), fg_color=Theme.COLOR_GREEN_BTN, hover_color=Theme.COLOR_GREEN_HOVER)
         self.btn_generate.pack(fill="x", padx=15, pady=(5, 15))
@@ -492,6 +497,27 @@ class UiMixin:
             self.flash_status(f"❌ 复制出错: {e}")
             self._append_log(f"[error] copy_prompt failed: {e}")
 
+    def copy_prompt_and_ocr(self):
+        try:
+            prompt_content = ""
+            prompt_path = self.prompt_file
+            if os.path.exists(prompt_path):
+                with open(prompt_path, 'r', encoding='utf-8') as f:
+                    prompt_content = f.read()
+            
+            ocr_content = getattr(self, "_pdf_ocr_last_text", "")
+            
+            if not ocr_content:
+                self.flash_status("❌ 没有OCR结果可复制")
+                return
+            
+            combined = f"{prompt_content}\n\n---\n\n# OCR 识别结果\n\n{ocr_content}"
+            pyperclip.copy(combined)
+            self.flash_status("✅ 提示词+OCR结果已复制！")
+        except Exception as e:
+            self.flash_status(f"❌ 复制出错: {e}")
+            self._append_log(f"[error] copy_prompt_and_ocr failed: {e}")
+
     def open_image_tool(self):
         if self._image_tool is None or not self._image_tool.winfo_exists():
             try:
@@ -504,10 +530,4 @@ class UiMixin:
 
     def _on_image_tool_close(self):
         self._image_tool = None
-
-    def _select_image_dir(self):
-        path = filedialog.askdirectory(title="选择图片目录 (OCR 输出文件夹)")
-        if path:
-            self.entry_image_dir.delete(0, "end")
-            self.entry_image_dir.insert(0, path)
 

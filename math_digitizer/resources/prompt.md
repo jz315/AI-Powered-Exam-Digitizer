@@ -40,6 +40,9 @@
 6. **图片处理**：
    - 如果文本中有 `![img](xxx.png)` 格式的图片引用，**原样保留**在 content 中。
    - 如果题目提到"如图"但没有图片引用，增加 `image` 字段用于预留位置。
+7. **元数据处理**：
+   - 如果输入开头有 `<!-- image_dir: xxx -->` 格式的 HTML 注释，必须提取路径写入 `meta.image_base_dir`。
+   - 该注释本身不要出现在任何题目内容中。
 
 # 💡 Few-Shot Examples
 
@@ -111,21 +114,31 @@
 }
 ```
 
-**Input Case 3: 含图片引用 (保留原样)**
+**Input Case 3: 含图片引用和元数据**
 > 文本内容：
+> <!-- image_dir: C:/output/pdf_ocr/数学试卷 -->
 > 8. 如图所示，在正方体中，求二面角的余弦值。
 > ![img](p001_021_figure.png)
 
 **Output JSON:**
 ```json
 {
-  "type": "problem",
-  "title": "解答题",
-  "questions": [
+  "meta": {
+    "title": "数学试卷",
+    "subject": "数学",
+    "image_base_dir": "C:/output/pdf_ocr/数学试卷"
+  },
+  "sections": [
     {
-      "id": 8,
-      "content": "如图所示，在正方体中，求二面角的余弦值。\\newline ![img](p001_021_figure.png)",
-      "sub_questions": []
+      "type": "problem",
+      "title": "解答题",
+      "questions": [
+        {
+          "id": 8,
+          "content": "如图所示，在正方体中，求二面角的余弦值。\\newline ![img](p001_021_figure.png)",
+          "sub_questions": []
+        }
+      ]
     }
   ]
 }
@@ -157,7 +170,11 @@
 # JSON Schema
 ```json
 {
-  "meta": { "title": "String", "subject": "数学" },
+  "meta": { 
+    "title": "String", 
+    "subject": "数学",
+    "image_base_dir": "String (从输入元数据提取的图片目录路径)"
+  },
   "sections": [
     {
       "type": "Enum: [single_choice, multiple_choice, fill, problem]",

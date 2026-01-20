@@ -55,8 +55,9 @@ class GenerationMixin:
             os.makedirs(output_dir, exist_ok=True)
 
             processed = self.generator.process_data(json.dumps(data))
-            image_dir = self.entry_image_dir.get().strip() or self._pdf_ocr_last_dir or None
-            missing_imgs = self.generator.replace_inline_images(processed, os.path.join(temp_dir, 'assets'), priority_dir=image_dir)
+            missing_imgs, img_warnings = self.generator.replace_inline_images(processed, os.path.join(temp_dir, 'assets'))
+            for warn in img_warnings:
+                self._append_log(f"[warn] {warn}")
             if missing_imgs:
                 self._append_log(f"[warn] Missing images: {len(missing_imgs)}")
                 uniq = []

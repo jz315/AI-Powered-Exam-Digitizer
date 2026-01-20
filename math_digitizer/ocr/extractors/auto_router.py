@@ -319,6 +319,7 @@ class AutoRouterLayoutExtractor:
             file_path = save_dir / filename
             crop.save(file_path)
             file_str = str(file_path)
+
             saved_files.append(file_str)
             saved_items.append({
                 "label": label,

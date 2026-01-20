@@ -1,0 +1,25 @@
+{
+  "meta": {
+    "title": "Sample Exam",
+    "subject": "Math"
+  },
+  "seed": 42,
+  "sections": [
+    {
+      "title": "Single Choice",
+      "type": "single_choice",
+      "count": 2,
+      "difficulty": { "easy": 1, "medium": 1 }
+    },
+    {
+      "title": "Fill",
+      "type": "fill",
+      "count": 1
+    },
+    {
+      "title": "Problems",
+      "type": "problem",
+      "count": 1
+    }
+  ]
+}

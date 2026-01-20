@@ -642,8 +642,12 @@ class PdfOcrMixin:
             for txt in results:
                 if txt: full_text_list.append(f"{txt}")
 
-            merged_text = "\n".join(full_text_list)
-            with open(output_dir / "merged.txt", "w", encoding="utf-8") as f: f.write(merged_text)
+            image_dir_path = str(output_dir.resolve()).replace("\\", "/")
+            header = f"<!-- image_dir: {image_dir_path} -->\n\n"
+            merged_text = header + "\n".join(full_text_list)
+            
+            with open(output_dir / "merged.md", "w", encoding="utf-8") as f:
+                f.write(merged_text)
 
             self._pdf_ocr_last_text = merged_text
             self._pdf_ocr_last_dir = str(output_dir)
@@ -656,6 +660,7 @@ class PdfOcrMixin:
             self.flash_status("✅ OCR 完成")
 
             self.after(0, lambda: self.btn_copy_pdf_ocr.configure(state="normal"))
+            self.after(0, lambda: self.btn_copy_prompt_and_ocr.configure(state="normal"))
             self.after(0, lambda: self.btn_open_pdf_ocr_dir.configure(state="normal"))
             self.after(0, lambda: messagebox.showinfo("成功", f"处理完成！\n文本已复制。"))
 
@@ -677,11 +682,6 @@ class PdfOcrMixin:
         if path and os.path.exists(path):
             if os.name == "nt": os.startfile(path)
             else: subprocess.call(["open" if sys.platform == "darwin" else "xdg-open", path])
-
-    def _update_image_dir_entry(self, path: str):
-        if hasattr(self, "entry_image_dir"):
-            self.entry_image_dir.delete(0, "end")
-            self.entry_image_dir.insert(0, path)
 
     def _load_pdf_ocr_config(self):
         try:

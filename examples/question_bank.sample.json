@@ -1,0 +1,45 @@
+{
+  "meta": {
+    "subject": "Math"
+  },
+  "questions": [
+    {
+      "id": "SC001",
+      "type": "single_choice",
+      "difficulty": "easy",
+      "tags": ["functions"],
+      "content": "If $f(x)=x^2$, then $f'(x)=$ __BLANK__.",
+      "options": ["$x$", "$2x$", "$x^2$", "$2$"]
+    },
+    {
+      "id": "SC002",
+      "type": "single_choice",
+      "difficulty": "medium",
+      "tags": ["geometry"],
+      "content": "The slope of the line through $(0,0)$ and $(2,4)$ is __BLANK__.",
+      "options": ["$1$", "$2$", "$3$", "$4$"]
+    },
+    {
+      "id": "MC001",
+      "type": "multiple_choice",
+      "difficulty": "hard",
+      "tags": ["calculus"],
+      "content": "Which of the following are continuous on $[0,1]$?",
+      "options": ["$x$", "$\\sqrt{x}$", "$1/x$", "$\\sin x$"]
+    },
+    {
+      "id": "F001",
+      "type": "fill",
+      "difficulty": "easy",
+      "tags": ["algebra"],
+      "content": "Solve: $2x+3=7$, $x=$ __BLANK__."
+    },
+    {
+      "id": "P001",
+      "type": "problem",
+      "difficulty": "medium",
+      "tags": ["functions", "calculus"],
+      "content": "Given $f(x)=x^3$, compute $f'(x)$ and $f''(x)$."
+    }
+  ]
+}
