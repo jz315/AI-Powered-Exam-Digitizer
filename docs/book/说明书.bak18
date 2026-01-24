@@ -1,0 +1,710 @@
+% !TEX program = xelatex
+\documentclass[UTF8,zihao=-4,openany]{ctexbook}
+
+% ---------- 页面与链接 ----------
+\usepackage[a4paper,margin=2.3cm]{geometry}
+\usepackage[hidelinks]{hyperref}
+\usepackage{bookmark}
+
+% ---------- 表格 ----------
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+
+% ---------- 代码块 ----------
+\usepackage{listings}
+\usepackage{xcolor}
+\lstdefinestyle{code}{
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  columns=fullflexible,
+  frame=single,
+  framerule=0.2pt,
+  rulecolor=\color{black!30},
+  backgroundcolor=\color{black!2},
+  showstringspaces=false,
+  tabsize=2
+}
+\lstset{style=code}
+
+% ---------- 提示框 ----------
+\usepackage[most]{tcolorbox}
+\tcbset{
+  enhanced,
+  breakable,
+  colback=black!2,
+  colframe=black!25,
+  boxrule=0.4pt,
+  arc=2pt,
+  left=8pt,right=8pt,top=6pt,bottom=6pt
+}
+\newtcolorbox{TipBox}{title=提示}
+\newtcolorbox{WarnBox}{title=注意,colback=orange!5,colframe=orange!35}
+\newtcolorbox{QABox}{title=问答,colback=blue!3,colframe=blue!30}
+\newtcolorbox{StepBox}[1][]{title=#1,colback=green!3,colframe=green!40}
+
+% ---------- 标题信息 ----------
+\title{Math Digitizer v2.0\\智能数学试卷排版工具\\使用说明书}
+\author{jz315 / AI-Powered-Exam-Digitizer}
+\date{2025年1月}
+
+\begin{document}
+\frontmatter
+\maketitle
+\tableofcontents
+
+\mainmatter
+
+% =========================================================
+\chapter{这个软件是做什么的？}
+
+\textbf{Math Digitizer（智能数学试卷排版工具）}是一款帮助您将纸质或 PDF 格式的数学试卷转换为精美电子版 PDF 的工具。
+
+\section{它能帮您做什么？}
+
+假设您手上有一份数学试卷的 PDF 文件（可能是扫描件、照片或电子版），您想要：
+\begin{itemize}
+	\item 把试卷重新排版，变成统一格式的漂亮 PDF
+	\item 提取试卷中的题目文字和公式
+	\item 自动生成专业的试卷布局
+\end{itemize}
+
+这个软件就能帮您完成这些工作！
+
+\section{整体流程概览}
+
+使用本软件，您需要经过三个简单的步骤：
+
+\begin{center}
+	\fbox{\parbox{0.85\textwidth}{
+			\textbf{第一步：提取}\\
+			上传 PDF 试卷 $\rightarrow$ 软件识别文字和图片\\[6pt]
+			\textbf{第二步：转换}\\
+			把识别结果发给 AI 助手 $\rightarrow$ AI 返回结构化数据\\[6pt]
+			\textbf{第三步：生成}\\
+			粘贴 AI 返回的数据 $\rightarrow$ 点击按钮 $\rightarrow$ 获得精美 PDF
+		}}
+\end{center}
+
+\begin{TipBox}
+	您不需要了解任何编程知识，只需要按照本说明书的步骤操作即可。
+\end{TipBox}
+
+% =========================================================
+\chapter{准备工作}
+
+在使用软件之前，您需要准备以下内容：
+
+\section{安装 LaTeX（必需）}
+
+本软件需要 LaTeX 来生成最终的 PDF 文件。LaTeX 是一个专业的排版系统，您只需安装一次即可。
+
+\subsection{Windows 用户}
+
+安装 \textbf{TeX Live} （不推荐）：
+
+\begin{enumerate}
+	\item 打开浏览器，访问：\url{https://tug.org/texlive/acquire-netinstall.html}
+	\item 下载 \texttt{install-tl-windows.exe}
+	\item 双击运行安装程序
+	\item 选择 ``Simple install''（简单安装）
+	\item 等待安装完成（约 1--2 小时，需要下载约 5GB 数据）
+\end{enumerate}
+
+\begin{TipBox}
+	安装过程较长，请耐心等待。建议在网络稳定的环境下进行。
+\end{TipBox}
+
+安装完成后，\textbf{重新启动电脑}，然后验证安装是否成功：
+\begin{enumerate}
+	\item 按 \texttt{Win + R} 键，输入 \texttt{cmd}，按回车
+	\item 在黑色窗口中输入：\texttt{xelatex --version}
+	\item 如果显示版本信息，说明安装成功
+\end{enumerate}
+
+\subsection{如果您使用 MiKTeX（推荐）}
+
+MiKTeX 是另一个选择，体积更小：
+\begin{enumerate}
+	\item 访问 \url{https://miktex.org/download} 下载安装
+	\item 安装时选择 ``Install for all users''
+	\item 勾选 ``Install missing packages on-the-fly: Yes''
+\end{enumerate}
+
+\begin{WarnBox}
+	MiKTeX 会在首次编译时自动下载缺失的组件，第一次生成 PDF 时会比较慢，请耐心等待。
+\end{WarnBox}
+
+\section{获取 API Key（必需）}
+
+本软件需要调用云端服务来识别 PDF 中的文字。您需要获取以下 API Key：
+
+\begin{WarnBox}
+	\textbf{国内用户请注意}：Google、OpenAI 等国外服务在中国大陆无法直接访问。本说明书优先推荐国内可用的服务。
+\end{WarnBox}
+
+\subsection{OCR 识别服务：阿里云 API Key（推荐）}
+
+阿里云通义千问提供 OCR 识别服务，\textbf{国内可直接访问}，推荐使用。
+
+获取步骤：
+\begin{enumerate}
+	\item 访问阿里云百炼平台：\url{https://bailian.console.aliyun.com/}
+	\item 使用支付宝或淘宝账号登录（也可注册阿里云账号）
+	\item 进入控制台后，点击右上角头像 $\rightarrow$ ``API-KEY 管理''
+	\item 点击 ``创建 API Key''
+	\item 复制生成的密钥（以 \texttt{sk-} 开头的一长串字符）
+	\item 妥善保存，稍后需要粘贴到软件的 \textbf{OCR Key} 输入框中
+\end{enumerate}
+
+\begin{TipBox}
+	阿里云新用户有免费额度，足够日常使用。在软件中，请将 \textbf{OCR Provider} 选择为 \texttt{aliyun}。
+\end{TipBox}
+
+\subsection{版面分析服务：硅基流动 API Key（推荐）}
+
+如果您使用 \textbf{Auto} 或 \textbf{DeepSeek OCR} 版面分析模式，需要配置 DeepSeek 服务。
+
+\textbf{推荐使用硅基流动}（国内可直接访问，速度快、稳定）：
+
+\begin{enumerate}
+	\item 访问硅基流动官网：\url{https://siliconflow.cn/}
+	\item 注册并登录账号
+	\item 进入控制台，找到「API 密钥」页面
+	\item 创建新的 API Key 并复制
+	\item 在软件的核心参数区域：
+	      \begin{itemize}
+		      \item 将 \textbf{DeepSeek} 选择为 \texttt{siliconflow}
+		      \item 在 \textbf{DS Key} 输入框中粘贴您的密钥
+	      \end{itemize}
+\end{enumerate}
+
+\begin{TipBox}
+	硅基流动提供 DeepSeek 模型的国内访问通道，新用户有免费额度，推荐使用。
+\end{TipBox}
+
+\subsection{备选：Modelverse API Key}
+
+Modelverse 也是可选的 DeepSeek 服务提供商：
+
+\begin{enumerate}
+	\item 访问 Modelverse 官网注册账号
+	\item 进入控制台，找到「API 密钥」页面
+	\item 创建新的 API Key 并复制
+	\item 在软件中将 \textbf{DeepSeek} 选择为 \texttt{modelverse}
+\end{enumerate}
+
+\subsection{备选：Gemini API Key}
+
+如果您可以访问国外网站，也可以使用 Google Gemini：
+\begin{enumerate}
+	\item 访问 \url{https://aistudio.google.com/apikey}
+	\item 使用 Google 账号登录
+	\item 点击 ``Create API Key'' 创建密钥
+	\item 在软件中将 \textbf{OCR Provider} 选择为 \texttt{gemini}
+\end{enumerate}
+
+\begin{WarnBox}
+	API Key 相当于您的密码，请勿分享给他人！
+\end{WarnBox}
+
+\section{准备一个 AI 助手}
+
+在第二步「转换」中，您需要使用一个 AI 聊天助手来帮您将识别结果转换成程序可读的格式。
+
+\textbf{国内可直接使用}：
+\begin{itemize}
+	\item \textbf{DeepSeek}（推荐）：\url{https://chat.deepseek.com} --- 中文理解好，完全免费
+	\item \textbf{通义千问}：\url{https://tongyi.aliyun.com} --- 阿里出品，稳定可靠
+	\item \textbf{Kimi}：\url{https://kimi.moonshot.cn} --- 长文本处理能力强
+	\item \textbf{豆包}：\url{https://www.doubao.com} --- 字节跳动出品
+\end{itemize}
+
+\textbf{不一定能访问}：
+\begin{itemize}
+	\item ChatGPT：\url{https://chat.openai.com}
+	\item Claude：\url{https://claude.ai}
+	\item Gemini：\url{https://gemini.google.com}
+\end{itemize}
+
+\begin{TipBox}
+	推荐使用 \textbf{DeepSeek}，它对数学公式和 JSON 格式的理解非常好，而且完全免费。
+\end{TipBox}
+
+% =========================================================
+\chapter{安装软件}
+
+\section{一键安装}
+
+\begin{enumerate}
+	\item 找到软件文件夹中的 \texttt{setup.bat} 文件
+	\item 双击运行它
+	\item 按照提示操作（安装程序会自动配置国内镜像源）
+	\item 等待安装完成（首次安装需要下载约 2-4GB 依赖，请耐心等待）
+\end{enumerate}
+
+\begin{TipBox}
+	安装过程中会出现命令行窗口，这是正常现象，请勿关闭。安装程序会询问几个问题：
+	\begin{itemize}
+		\item \textbf{是否使用国内镜像？} --- 推荐选 Y（加速下载）
+		\item \textbf{是否安装 GPU 支持？} --- 如果您有 NVIDIA 显卡，建议选择 Y
+		\item \textbf{是否安装前端依赖？} --- 如果需要 Web 界面，选择 Y
+	\end{itemize}
+\end{TipBox}
+
+\begin{WarnBox}
+	\textbf{安装失败怎么办？}
+	\begin{itemize}
+		\item 检查网络连接是否正常
+		\item 尝试删除软件目录下的 \texttt{.venv} 文件夹，然后重新运行 \texttt{setup.bat}
+		\item 如果镜像源失效，安装程序会自动尝试备用源
+	\end{itemize}
+\end{WarnBox}
+
+\section{启动软件}
+
+安装完成后，每次使用软件：
+
+\begin{enumerate}
+	\item 找到软件文件夹中的 \texttt{run.vbs} 文件
+	\item 双击运行它
+	\item 软件窗口将会打开
+\end{enumerate}
+
+\begin{TipBox}
+	建议将 \texttt{run.vbs} 创建一个桌面快捷方式，方便日后启动。
+\end{TipBox}
+
+% =========================================================
+\chapter{使用教程}
+
+软件界面分为三个选项卡，对应三个步骤。下面逐一介绍每个步骤的操作方法。
+
+\section{第一步：智能提取（OCR）}
+
+这一步的目的是把 PDF 试卷中的文字和图片提取出来。
+
+\begin{StepBox}[操作步骤]
+	\begin{enumerate}
+		\item 点击界面上方的 \textbf{「1. 智能提取 (OCR)」} 选项卡
+		\item 将 \textbf{OCR 引擎} 选择为 \texttt{aliyun}（国内推荐）
+		\item 在 \textbf{API Key} 输入框中粘贴您的阿里云 API Key
+		\item 点击 \textbf{「📂 选择 PDF」} 按钮，选择您的试卷 PDF
+		\item 点击绿色的 \textbf{「🚀 开始智能识别 (OCR)」} 按钮
+		\item 等待进度条完成（可能需要几分钟）
+		\item 完成后，识别结果会自动复制到剪贴板
+	\end{enumerate}
+\end{StepBox}
+
+\begin{TipBox}
+	\textbf{国内用户推荐配置}：OCR 引擎选 \texttt{aliyun}，DeepSeek 选择 \texttt{siliconflow}（硅基流动，推荐）。
+\end{TipBox}
+
+\subsection{界面说明}
+
+\begin{center}
+	\begin{tabular}{lp{9cm}}
+		\toprule
+		\textbf{界面元素} & \textbf{说明}                           \\
+		\midrule
+		OCR 引擎        & 选择识别服务。国内用户推荐 \texttt{aliyun}（阿里云）    \\
+		API Key       & 粘贴您的 API Key（阿里云或 Gemini）             \\
+		版面模型          & 选择版面分析方式。推荐 \texttt{Auto Router}      \\
+		OCR Model     & OCR 模型名称，通常保持默认即可                     \\
+		页面范围          & 指定要处理的页码，如 \texttt{1-3,5}。留空表示全部      \\
+		DeepSeek      & DeepSeek 服务配置，推荐 \texttt{siliconflow} \\
+		\bottomrule
+	\end{tabular}
+\end{center}
+
+\subsection{什么是版面分析模型？}
+
+版面分析模型用于识别 PDF 页面中的不同区域（标题、题目、图片等）。
+
+\begin{itemize}
+	\item \textbf{Auto Router}（推荐）：智能选择，优先使用本地模型，必要时切换云端
+	\item \textbf{DocLayout-YOLO}：本地模型，速度快，不消耗云端配额
+	\item \textbf{DeepSeek OCR}：云端模型，对手写体和复杂公式识别更好，需要配置硅基流动 API Key
+\end{itemize}
+
+\begin{TipBox}
+	对于大多数印刷体试卷，使用默认的 \texttt{Auto Router} 即可获得最佳效果。使用 Auto Router 或 DeepSeek OCR 时，请在核心参数区域配置 DeepSeek 服务商和 API Key。
+\end{TipBox}
+
+\section{第二步：发送给 AI 助手}
+
+识别完成后，您需要把结果发送给 AI 助手，让它转换成程序可读的格式。
+
+\begin{StepBox}[操作步骤]
+	\begin{enumerate}
+		\item 点击 \textbf{「2. 数据编辑 (Editor)」} 选项卡
+		\item 点击右上角的 \textbf{「Copy OCR Prompt」} 按钮，复制提示词
+		\item 打开您的 AI 助手（推荐 DeepSeek：\url{https://chat.deepseek.com}）
+		\item 粘贴提示词（按 Ctrl + V）
+		\item 在提示词后面，再粘贴第一步识别出的文字（剪贴板中已经有了）
+		\item 发送给 AI，等待它回复
+		\item AI 会返回一段以 \texttt{\{} 开头、以 \texttt{\}} 结尾的代码（JSON 格式）
+		\item 复制 AI 返回的这段代码
+	\end{enumerate}
+\end{StepBox}
+
+\begin{TipBox}
+	AI 返回的内容应该是类似这样的格式：
+	\begin{lstlisting}
+{
+  "meta": {
+    "title": "高三数学模拟考试",
+    "subject": "数学"
+  },
+  "sections": [
+    ...
+  ]
+}
+\end{lstlisting}
+	如果 AI 返回了其他内容（如解释性文字），请让它「只输出 JSON，不要其他内容」。
+\end{TipBox}
+
+\section{第三步：生成 PDF}
+
+现在把 AI 返回的数据粘贴到软件中，即可生成最终的 PDF。
+
+\begin{StepBox}[操作步骤]
+	\begin{enumerate}
+		\item 在 \textbf{「2. 数据编辑 (Editor)」} 选项卡中
+		\item 在大文本框中粘贴 AI 返回的 JSON 代码
+		\item 软件会自动校验数据格式
+		\item 如果显示 \textcolor{green!50!black}{\textbf{「校验通过」}}，说明数据格式正确
+		\item 点击 \textbf{「3. 导出与工具 (Export)」} 选项卡
+		\item 在「文件名」输入框中输入您想要的文件名（可留空，自动使用试卷标题）
+		\item 点击绿色的 \textbf{「生成 PDF 文件」} 按钮
+		\item 等待几秒钟，PDF 生成完成后会自动打开输出文件夹
+	\end{enumerate}
+\end{StepBox}
+
+\begin{TipBox}
+	生成的 PDF 文件保存在软件目录下的 \texttt{output} 文件夹中。
+\end{TipBox}
+
+\subsection{如果校验不通过怎么办？}
+
+如果数据校验显示错误（红色提示），可能的原因和解决方法：
+
+\begin{itemize}
+	\item \textbf{JSON 格式错误}：AI 返回的内容可能不完整。请让 AI 重新生成，或检查是否完整复制了整段代码。
+	\item \textbf{LaTeX 公式错误}：某些数学公式格式有误。根据错误提示的行号检查对应内容。
+\end{itemize}
+
+% =========================================================
+\chapter{高级功能}
+
+\section{仅版面识别}
+
+如果您只想分析 PDF 的版面结构（不进行 OCR 识别），可以点击 \textbf{「🔍 仅版面」} 按钮。
+
+这个功能会：
+\begin{itemize}
+	\item 识别页面中的各个区域（标题、题目、图片等）
+	\item 将图片区域单独保存
+	\item 不调用 OCR 服务识别文字
+\end{itemize}
+
+\section{图片处理工具}
+
+在 \textbf{「3. 导出与工具」} 选项卡中，您可以找到图片处理工具。
+
+这个工具可以对识别出的图片进行预处理：
+\begin{itemize}
+	\item 二值化：将图片转为黑白，提高清晰度
+	\item 去噪：去除图片中的杂点
+\end{itemize}
+
+\section{指定页码范围}
+
+如果 PDF 很长，您可以只处理其中的部分页面：
+
+\begin{itemize}
+	\item 在 \textbf{Pages} 输入框中输入页码范围
+	\item 格式示例：\texttt{1-3}（第 1 到 3 页）、\texttt{1,3,5}（第 1、3、5 页）、\texttt{1-3,7,9-10}
+	\item 留空表示处理所有页面
+\end{itemize}
+
+\section{调试设置}
+
+点击「🔧 调试设置」可以展开更多高级选项：
+
+\begin{center}
+	\begin{tabular}{lp{9cm}}
+		\toprule
+		\textbf{设置项} & \textbf{说明}                                                                                                            \\
+		\midrule
+		Router       & Auto Router 的决策模式：\texttt{any}（任意触发）、\texttt{textness}（文本比例）、\texttt{second\_pass}（二次检测，默认）、\texttt{gemini}（Gemini 辅助） \\
+		阈值           & 外部区域比例和最小文本比例的阈值设置                                                                                                     \\
+		DS Base URL  & 自定义 DeepSeek API 地址（选择 \texttt{custom} 时使用）                                                                            \\
+		Gemini Probe & 启用 Gemini 辅助判断（国内用户可不勾选）                                                                                               \\
+		Threads/DPI  & 并行线程数和 PDF 渲染分辨率                                                                                                       \\
+		\bottomrule
+	\end{tabular}
+\end{center}
+
+\begin{WarnBox}
+	\textbf{国内用户重要提示}：使用 Auto Router 或 DeepSeek OCR 模式时，请将 DeepSeek 设置为 \texttt{modelverse} 或 \texttt{siliconflow}，并填入对应的 API Key。直接使用 DeepSeek 官方服务可能无法访问。
+\end{WarnBox}
+
+% =========================================================
+\chapter{题库与组卷}
+
+v2.0 新增了题库管理和自动组卷功能，您可以将识别的题目保存到题库，方便后续重复使用和组卷。
+
+\section{导入题目到题库}
+
+\begin{StepBox}[操作步骤]
+	\begin{enumerate}
+		\item 完成 OCR 识别并让 AI 生成 JSON 数据
+		\item 在「2. 数据编辑 (Editor)」选项卡中粘贴 JSON
+		\item 点击 \textbf{「📥 导入到题库」} 按钮
+		\item 系统会自动提取所有题目并保存到题库
+	\end{enumerate}
+\end{StepBox}
+
+\begin{TipBox}
+	导入时，系统会自动：
+	\begin{itemize}
+		\item 为每道题目生成唯一 ID
+		\item 将题目中的图片复制到题库目录
+		\item 更新图片路径引用
+	\end{itemize}
+\end{TipBox}
+
+\section{题库文件位置}
+
+\begin{center}
+	\begin{tabular}{lp{8cm}}
+		\toprule
+		\textbf{路径}                                        & \textbf{说明} \\
+		\midrule
+		\texttt{output/question\_bank/question\_bank.json} & 题库主文件       \\
+		\texttt{output/question\_bank/assets/}             & 题目图片存储目录    \\
+		\bottomrule
+	\end{tabular}
+\end{center}
+
+\section{题库格式}
+
+题库使用 JSON 格式存储，每道题目包含以下字段：
+
+\begin{lstlisting}
+{
+  "meta": { "subject": "Math" },
+  "questions": [
+    {
+      "id": "SC001",
+      "type": "single_choice",
+      "difficulty": "easy",
+      "tags": ["functions"],
+      "content": "题目内容...",
+      "options": ["A", "B", "C", "D"]
+    }
+  ]
+}
+\end{lstlisting}
+
+\subsection{题目类型}
+
+\begin{center}
+	\begin{tabular}{ll}
+		\toprule
+		\textbf{类型}               & \textbf{说明} \\
+		\midrule
+		\texttt{single\_choice}   & 单选题         \\
+		\texttt{multiple\_choice} & 多选题         \\
+		\texttt{fill}             & 填空题         \\
+		\texttt{problem}          & 解答题         \\
+		\bottomrule
+	\end{tabular}
+\end{center}
+
+\subsection{难度等级}
+
+\begin{center}
+	\begin{tabular}{ll}
+		\toprule
+		\textbf{难度}     & \textbf{说明} \\
+		\midrule
+		\texttt{easy}   & 简单          \\
+		\texttt{medium} & 中等          \\
+		\texttt{hard}   & 困难          \\
+		\bottomrule
+	\end{tabular}
+\end{center}
+
+% =========================================================
+\chapter{常见问题}
+
+\begin{QABox}
+	\textbf{Q：软件打开后是空白的或报错}
+
+	请确认：
+	\begin{itemize}
+		\item 已正确运行 \texttt{setup.bat} 完成安装
+		\item 使用 \texttt{run.vbs} 启动软件，而不是其他方式
+	\end{itemize}
+\end{QABox}
+
+\begin{QABox}
+	\textbf{Q：点击「🚀 开始智能识别」后长时间没有反应}
+
+	可能的原因：
+	\begin{itemize}
+		\item 网络连接问题：请检查网络是否正常
+		\item API Key 错误：请确认 API Key 是否正确粘贴
+		\item PDF 文件过大：可以尝试只处理部分页面
+	\end{itemize}
+\end{QABox}
+
+\begin{QABox}
+	\textbf{Q：生成 PDF 时报错「xelatex 命令未找到」}
+
+	这说明 LaTeX 没有正确安装。请按照第二章的说明重新安装 TeX Live 或 MiKTeX，安装完成后\textbf{重启电脑}。
+\end{QABox}
+
+\begin{QABox}
+	\textbf{Q：生成 PDF 时报错「LaTeX 编译失败」}
+
+	这通常是因为 AI 返回的数据中有格式错误。请尝试：
+	\begin{itemize}
+		\item 让 AI 重新生成 JSON 数据
+		\item 根据错误提示的行号，检查对应的公式或内容
+		\item 确保 AI 只返回了 JSON 代码，没有其他解释性文字
+	\end{itemize}
+\end{QABox}
+
+\begin{QABox}
+	\textbf{Q：识别的公式有错误}
+
+	OCR 可能会识别错误，这是正常现象。您可以：
+	\begin{itemize}
+		\item 在 AI 助手中指出错误，让它修正
+		\item 直接在「数据编辑」选项卡中手动修改 JSON 数据
+	\end{itemize}
+\end{QABox}
+
+\begin{QABox}
+	\textbf{Q：AI 返回的内容不是 JSON 格式}
+
+	请明确告诉 AI：「请只输出 JSON 代码，不要任何解释文字，不要用 markdown 代码块包裹」
+\end{QABox}
+
+\begin{QABox}
+	\textbf{Q：没有 GPU 电脑，能用吗？}
+
+	可以。软件会自动使用 CPU 运行。如果本地模型运行较慢，可以选择使用云端的 DeepSeek OCR 模式（需要配置 Modelverse 或硅基流动 API Key）。
+\end{QABox}
+
+\begin{QABox}
+	\textbf{Q：生成的 PDF 中图片显示不出来}
+
+	请确保：
+	\begin{itemize}
+		\item 在「导出与工具」选项卡中，「图片目录」已正确填写（通常会自动填充）
+		\item 图片文件存在于指定目录中
+	\end{itemize}
+\end{QABox}
+
+\begin{QABox}
+	\textbf{Q：如何只重新排版，不需要 OCR？}
+
+	如果您已经有了结构化的 JSON 数据，可以直接：
+	\begin{enumerate}
+		\item 打开软件，进入「数据编辑」选项卡
+		\item 粘贴您的 JSON 数据
+		\item 进入「导出与工具」选项卡，点击生成 PDF
+	\end{enumerate}
+\end{QABox}
+
+% =========================================================
+\chapter{快速参考}
+
+\section{操作流程速查}
+
+\begin{center}
+	\begin{tabular}{|c|l|l|}
+		\hline
+		\textbf{步骤} & \textbf{操作} & \textbf{说明}           \\
+		\hline
+		1           & 选择 PDF 文件   & 点击「📂 选择 PDF」按钮        \\
+		2           & 开始识别        & 点击绿色「🚀 开始智能识别」按钮      \\
+		3           & 复制提示词       & 点击「Copy OCR Prompt」按钮 \\
+		4           & 发送给 AI      & 在 AI 助手中粘贴提示词 + 识别结果  \\
+		5           & 复制 AI 回复    & 复制 AI 返回的 JSON 代码     \\
+		6           & 粘贴数据        & 在「数据编辑」选项卡中粘贴         \\
+		7           & 生成 PDF      & 点击「✨ 生成 PDF 文件」按钮     \\
+		\hline
+	\end{tabular}
+\end{center}
+
+\section{文件位置说明}
+
+\begin{center}
+	\begin{tabular}{lp{8cm}}
+		\toprule
+		\textbf{文件}                         & \textbf{说明}      \\
+		\midrule
+		\texttt{setup.bat}                  & 安装脚本，首次使用时双击运行   \\
+		\texttt{run.vbs}                    & 启动脚本，每次使用时双击运行   \\
+		\texttt{output/} 文件夹                & 生成的 PDF 保存在这里    \\
+		\texttt{output/pdf\_ocr/} 文件夹       & OCR 识别的中间文件（图片等） \\
+		\texttt{output/question\_bank/} 文件夹 & 题库文件和图片存储目录      \\
+		\bottomrule
+	\end{tabular}
+\end{center}
+
+\section{推荐的 AI 助手}
+
+\textbf{国内可直接使用}：
+\begin{center}
+	\begin{tabular}{llp{5cm}}
+		\toprule
+		\textbf{名称}  & \textbf{网址}       & \textbf{特点}        \\
+		\midrule
+		DeepSeek（推荐） & chat.deepseek.com & 中文理解好，完全免费，数学公式处理强 \\
+		通义千问         & tongyi.aliyun.com & 阿里出品，稳定可靠          \\
+		Kimi         & kimi.moonshot.cn  & 长文本处理能力强           \\
+		豆包           & www.doubao.com    & 字节跳动出品，响应快         \\
+		\bottomrule
+	\end{tabular}
+\end{center}
+
+\textbf{难访问}：
+\begin{center}
+	\begin{tabular}{llp{5cm}}
+		\toprule
+		\textbf{名称} & \textbf{网址}       & \textbf{特点} \\
+		\midrule
+		ChatGPT     & chat.openai.com   & 综合能力强       \\
+		Claude      & claude.ai         & 对长文本处理好     \\
+		Gemini      & gemini.google.com & 免费额度多       \\
+		\bottomrule
+	\end{tabular}
+\end{center}
+
+% =========================================================
+\chapter{获取帮助}
+
+\section{项目地址}
+
+本软件是开源项目，您可以在 GitHub 上找到它：
+
+\url{https://github.com/jz315/AI-Powered-Exam-Digitizer}
+
+\section{反馈问题}
+
+如果您在使用过程中遇到问题，可以：
+
+\begin{enumerate}
+	\item 查看本说明书的「常见问题」章节
+	\item 在 GitHub 项目页面提交 Issue
+	\item 查看项目的 README 文件获取最新信息
+\end{enumerate}
+
+\backmatter
+\end{document}

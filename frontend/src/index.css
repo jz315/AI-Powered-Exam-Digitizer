@@ -1,10 +1,193 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-:root {
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+/* ========================================
+   Math Digitizer - Premium Design System
+   ======================================== */
+
+@layer base {
+  :root {
+    /* Font Stack */
+    --font-sans: 'Inter', system-ui, sans-serif;
+    --font-display: 'Outfit', system-ui, sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+
+    /* Light Mode - Crisp, Clean, Linear-esque */
+    --color-background: 0 0% 100%;
+    --color-foreground: 240 10% 3.9%;
+
+    --color-card: 0 0% 100%;
+    --color-card-foreground: 240 10% 3.9%;
+
+    --color-popover: 0 0% 100%;
+    --color-popover-foreground: 240 10% 3.9%;
+
+    --color-primary: 240 5.9% 10%;
+    --color-primary-foreground: 0 0% 98%;
+
+    --color-secondary: 240 4.8% 95.9%;
+    --color-secondary-foreground: 240 5.9% 10%;
+
+    --color-muted: 240 4.8% 95.9%;
+    --color-muted-foreground: 240 3.8% 46.1%;
+
+    --color-accent: 240 4.8% 95.9%;
+    --color-accent-foreground: 240 5.9% 10%;
+
+    --color-destructive: 0 84.2% 60.2%;
+    --color-destructive-foreground: 0 0% 98%;
+
+    --color-border: 240 5.9% 90%;
+    --color-input: 240 5.9% 90%;
+    --color-ring: 240 5.9% 10%;
+
+    --radius: 0.75rem;
+    
+    /* Glass & Effects */
+    --glass-border: rgba(0, 0, 0, 0.08);
+    --glass-bg: rgba(255, 255, 255, 0.7);
+    --glass-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+  }
+
+  .dark {
+    /* Dark Mode - Deep, Rich, Space-like */
+    --color-background: 224 71% 4%; /* #030712 - Very dark blue/black */
+    --color-foreground: 213 31% 91%;
+
+    --color-card: 224 71% 6%;
+    --color-card-foreground: 213 31% 91%;
+
+    --color-popover: 224 71% 5%;
+    --color-popover-foreground: 215 20.2% 65.1%;
+
+    --color-primary: 210 40% 98%;
+    --color-primary-foreground: 222.2 47.4% 11.2%;
+
+    --color-secondary: 222 47% 14%;
+    --color-secondary-foreground: 210 40% 98%;
+
+    --color-muted: 223 47% 11%;
+    --color-muted-foreground: 215.4 16.3% 56.9%;
+
+    --color-accent: 216 34% 17%;
+    --color-accent-foreground: 210 40% 98%;
+
+    --color-destructive: 0 62.8% 30.6%;
+    --color-destructive-foreground: 210 40% 98%;
+
+    --color-border: 216 34% 17%;
+    --color-input: 216 34% 17%;
+    --color-ring: 216 34% 17%;
+
+    /* Glass & Effects - Dark */
+    --glass-border: rgba(255, 255, 255, 0.08);
+    --glass-bg: rgba(3, 7, 18, 0.6);
+    --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.45);
+  }
+
+  * {
+    border-color: hsl(var(--color-border));
+  }
+  
+  body {
+    @apply bg-background text-foreground font-sans antialiased selection:bg-primary/20 selection:text-primary;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-display tracking-tight;
+  }
 }
 
-body {
-  @apply bg-slate-50 text-slate-900;
+/* ========================================
+   Custom Utilities & Effects
+   ======================================== */
+
+@layer utilities {
+  /* Glassmorphism Classes */
+  .glass {
+    @apply backdrop-blur-xl border border-[rgba(255,255,255,0.08)] bg-[var(--glass-bg)] shadow-[var(--glass-shadow)];
+  }
+
+  .glass-panel {
+    @apply backdrop-blur-2xl border border-white/5 bg-black/40 shadow-2xl;
+  }
+
+  /* Text Gradients */
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-white via-white/80 to-white/60;
+  }
+  
+  .text-gradient-primary {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400;
+  }
+
+  /* Subtle Grid Background */
+  .bg-grid-pattern {
+    background-size: 40px 40px;
+    background-image: linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                      linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+    mask-image: radial-gradient(circle at center, black 40%, transparent 100%);
+  }
+
+  /* Animations */
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+  
+  .animate-pulse-glow {
+    animation: pulse-glow 3s ease-in-out infinite;
+  }
+  
+  .animate-in-fade-slide {
+    animation: in-fade-slide 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  /* Scrollbar - Minimal */
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    @apply bg-muted-foreground/20 rounded-full hover:bg-muted-foreground/40 transition-colors;
+  }
+}
+
+/* Keyframes */
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 10px rgba(59, 130, 246, 0); }
+  50% { box-shadow: 0 0 20px rgba(59, 130, 246, 0.3); }
+}
+
+@keyframes in-fade-slide {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Component Overrides */
+.monaco-editor .margin {
+  background-color: transparent !important;
 }

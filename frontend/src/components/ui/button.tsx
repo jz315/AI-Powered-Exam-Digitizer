@@ -2,7 +2,7 @@
 import { cn } from "@/lib/utils"
 
 type ButtonVariant = "default" | "outline" | "ghost" | "destructive" | "secondary" | "link"
-type ButtonSize = "sm" | "md" | "icon"
+type ButtonSize = "sm" | "md" | "lg" | "icon"
 
 export type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: ButtonVariant
@@ -29,6 +29,7 @@ export function Button({
   const sizes: Record<ButtonSize, string> = {
     sm: "h-8 px-3 text-xs",
     md: "h-9 px-4 text-sm",
+    lg: "h-10 px-8 text-base",
     icon: "h-9 w-9 p-0",
   }
 

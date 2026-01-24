@@ -215,7 +215,14 @@ class DeepseekOcrLayoutExtractor:
                 })
 
             if cb:
-                cb(event="page_saved", page=page_idx + 1, total=total_pages, items=len(valid_items), model="deepseek_ocr")
+                cb(
+                    event="page_saved",
+                    page=page_idx + 1,
+                    total=total_pages,
+                    items=len(valid_items),
+                    items_list=page_items,
+                    model="deepseek_ocr",
+                )
             return page_files, page_items
 
         if num_workers and num_workers > 1:

@@ -36,8 +36,19 @@
 % -----------------------------
 
 % --- 试卷表头 ---
+((* if meta.title *))
 \title{ (( meta.title )) }
+((* endif *))
 \subject{ (( meta.subject )) }
+((* if meta.school *))
+\school{ (( meta.school )) }
+((* endif *))
+((* if meta.exam_time *))
+\date{ (( meta.exam_time )) }
+((* endif *))
+((* if meta.duration *))
+\examtime{ (( meta.duration )) }
+((* endif *))
 \maketitle
 
 

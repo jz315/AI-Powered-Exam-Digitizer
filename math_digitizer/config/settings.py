@@ -63,16 +63,22 @@ class DeepseekConfig(BaseModel):
         return "https://api.modelverse.cn/v1/"
 
 
-class GeminiConfig(BaseModel):
-    """Gemini configuration."""
-    
-    model: str = Field(default="gemini-1.5-flash", description="Gemini model name")
-
-
 class OcrConfig(BaseModel):
     """OCR provider configuration."""
 
     provider: str = Field(default="gemini", description="OCR provider: gemini, aliyun")
+    models_by_provider: dict[str, str] = Field(
+        default_factory=dict,
+        description="OCR model per provider (e.g. gemini/aliyun)",
+    )
+    default_models: dict[str, str] = Field(
+        default_factory=lambda: {"gemini": "gemini-3-flash-preview", "aliyun": "qwen3-vl-plus"},
+        description="Default OCR model per provider",
+    )
+
+    def get_model(self, provider: str) -> str:
+        """Get model for provider, falling back to default."""
+        return self.models_by_provider.get(provider) or self.default_models.get(provider, "")
 
 
 class AutoRouterConfig(BaseModel):
@@ -82,14 +88,14 @@ class AutoRouterConfig(BaseModel):
     min_text_ratio: float = Field(default=0.0005, ge=0.0, le=1.0)
     min_component_area: int = Field(default=30, ge=0)
     gemini_probe: bool = Field(default=False)
-    gemini_model: str = Field(default="gemini-2.0-flash")
-    router_mode: str = Field(default="any", description="any, textness, second_pass, gemini")
+    gemini_model: str = Field(default="gemini-2.5-flash-lite")
+    router_mode: str = Field(default="second_pass", description="any, textness, second_pass, gemini")
 
 
 class LayoutConfig(BaseModel):
     """Layout processing configuration."""
     
-    model: str = Field(default="doclayout_yolo", description="Layout model key")
+    model: str = Field(default="auto_router", description="Layout model key")
     threads: int = Field(default=1, ge=1, le=32)
     dpi: int = Field(default=200, ge=72, le=600)
 
@@ -98,7 +104,6 @@ class AppConfig(BaseModel):
     """Root application configuration."""
     
     deepseek: DeepseekConfig = Field(default_factory=DeepseekConfig)
-    gemini: GeminiConfig = Field(default_factory=GeminiConfig)
     ocr: OcrConfig = Field(default_factory=OcrConfig)
     layout: LayoutConfig = Field(default_factory=LayoutConfig)
     auto_router: AutoRouterConfig = Field(default_factory=AutoRouterConfig)
@@ -119,10 +124,6 @@ def _migrate_legacy_config(legacy_data: dict) -> AppConfig:
         config.deepseek.provider = str(provider)
     if base_url := legacy_data.get("deepseek_base_url"):
         config.deepseek.base_url = str(base_url)
-    
-    # Gemini
-    if model := legacy_data.get("auto_gemini_model"):
-        config.gemini.model = str(model)
     
     # Layout
     if model := legacy_data.get("layout_model"):

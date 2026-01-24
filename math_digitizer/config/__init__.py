@@ -9,7 +9,6 @@ Provides unified config handling with:
 from math_digitizer.config.settings import (
     AppConfig,
     DeepseekConfig,
-    GeminiConfig,
     OcrConfig,
     LayoutConfig,
     AutoRouterConfig,
@@ -30,7 +29,6 @@ __all__ = [
     # Settings
     "AppConfig",
     "DeepseekConfig",
-    "GeminiConfig",
     "OcrConfig",
     "LayoutConfig",
     "AutoRouterConfig",

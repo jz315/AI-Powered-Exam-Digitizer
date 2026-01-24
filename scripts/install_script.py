@@ -91,22 +91,6 @@ def phase_0_preflight():
 def phase_1_tools():
     log("阶段 1: 检查基础工具 (Tools Check)", "step")
     
-    print(" - 检查 uv 包管理器...", end=" ")
-    if check_command("uv"):
-        print(f"{Colors.OKGREEN}OK{Colors.ENDC}")
-    else:
-        print(f"{Colors.FAIL}未找到{Colors.ENDC}")
-        log("未检测到 uv，正在尝试自动安装...", "warning")
-        try:
-            if platform.system() == "Windows":
-                subprocess.check_call('powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"', shell=True)
-            else:
-                subprocess.check_call('curl -LsSf https://astral.sh/uv/install.sh | sh', shell=True)
-            log("uv 安装成功。", "success")
-        except:
-            log("uv 安装失败，请手动安装。", "error")
-            sys.exit(1)
-
     print(" - 检查 Python 环境...", end=" ")
     v = sys.version_info
     if v.major == 3 and v.minor >= 11:
@@ -115,6 +99,36 @@ def phase_1_tools():
         print(f"{Colors.FAIL}版本过低{Colors.ENDC}")
         log(f"需要 Python 3.11+，当前版本: {v.major}.{v.minor}", "error")
         sys.exit(1)
+    
+    print(" - 检查 uv 包管理器...", end=" ")
+    if check_command("uv"):
+        print(f"{Colors.OKGREEN}OK{Colors.ENDC}")
+    else:
+        print(f"{Colors.FAIL}未找到{Colors.ENDC}")
+        log("未检测到 uv，正在尝试自动安装...", "warning")
+        
+        print(f"\n{Colors.YELLOW}提示：默认安装源在国外，可能较慢。{Colors.ENDC}")
+        choice = input(f"{Colors.BOLD}是否使用国内镜像安装 uv? (推荐选 Y) [Y/n]: {Colors.ENDC}").lower()
+        
+        try:
+            if choice != 'n':
+                log("使用清华镜像通过 pip 安装 uv...", "info")
+                subprocess.check_call([
+                    sys.executable, "-m", "pip", "install", "uv",
+                    "-i", "https://pypi.tuna.tsinghua.edu.cn/simple",
+                    "--trusted-host", "pypi.tuna.tsinghua.edu.cn"
+                ])
+            else:
+                log("使用官方脚本安装 uv...", "info")
+                if platform.system() == "Windows":
+                    subprocess.check_call('powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"', shell=True)
+                else:
+                    subprocess.check_call('curl -LsSf https://astral.sh/uv/install.sh | sh', shell=True)
+            log("uv 安装成功。", "success")
+        except Exception as e:
+            log(f"uv 安装失败: {e}", "error")
+            log("请手动安装 uv: pip install uv", "error")
+            sys.exit(1)
 
 def phase_2_gpu_config():
     log("阶段 2: 硬件配置检查 (Hardware Config)", "step")
@@ -207,14 +221,41 @@ def phase_2_gpu_config():
 
 def phase_3_install():
     log("阶段 3: 安装项目依赖 (Installing Dependencies)", "step")
+    
+    # 询问是否使用国内镜像
+    print(f"\n{Colors.YELLOW}提示：默认从 PyPI 官方源下载，国内用户可能较慢。{Colors.ENDC}")
+    choice = input(f"{Colors.BOLD}是否使用国内镜像加速? (推荐选 Y) [Y/n]: {Colors.ENDC}").lower()
+    
+    use_mirror = choice != 'n'
+    
+    if use_mirror:
+        log("正在使用清华镜像源安装依赖...", "info")
+        # 设置 uv 使用清华 PyPI 镜像
+        env = os.environ.copy()
+        env["UV_INDEX_URL"] = "https://pypi.tuna.tsinghua.edu.cn/simple"
+        # 对于 PyTorch CUDA 版本，使用阿里云镜像
+        env["UV_EXTRA_INDEX_URL"] = "https://mirrors.aliyun.com/pytorch-wheels/cu124"
+    else:
+        log("正在使用默认源安装依赖 (可能较慢)...", "info")
+        env = None
+    
     log("正在运行 'uv sync' (首次运行可能需要较长时间，请耐心等待)...", "info")
     
     try:
-        subprocess.check_call("uv sync", shell=True)
+        subprocess.check_call("uv sync", shell=True, env=env)
         log("依赖安装成功！", "success")
     except subprocess.CalledProcessError:
         log("安装失败。请检查网络连接。", "error")
-        sys.exit(1)
+        if use_mirror:
+            log("尝试使用默认源重试...", "warning")
+            try:
+                subprocess.check_call("uv sync", shell=True)
+                log("依赖安装成功！", "success")
+            except subprocess.CalledProcessError:
+                log("重试失败。", "error")
+                sys.exit(1)
+        else:
+            sys.exit(1)
 
 def phase_4_check_latex():
     log("阶段 4: 检查 LaTeX 环境 (Check LaTeX)", "step")
@@ -227,7 +268,42 @@ def phase_4_check_latex():
         print("    您将无法编译生成的 PDF 试卷。")
         print("    请安装 TeX Live (推荐) 或 MiKTeX。")
 
-def phase_5_verify():
+def phase_5_frontend():
+    log("阶段 5: 安装前端依赖 (Frontend Dependencies)", "step")
+    
+    frontend_dir = os.path.join(os.path.dirname(__file__), "frontend")
+    if not os.path.exists(frontend_dir):
+        log("未检测到 frontend 目录，跳过前端安装。", "info")
+        return
+    
+    if not check_command("npm"):
+        log("未检测到 npm，跳过前端安装。", "warning")
+        print("    如需使用前端界面，请先安装 Node.js: https://nodejs.org/")
+        return
+    
+    print(f"\n{Colors.YELLOW}提示：npm 默认源在国外，可能较慢。{Colors.ENDC}")
+    choice = input(f"{Colors.BOLD}是否使用淘宝镜像安装前端依赖? (推荐选 Y) [Y/n]: {Colors.ENDC}").lower()
+    
+    use_mirror = choice != 'n'
+    
+    try:
+        os.chdir(frontend_dir)
+        
+        if use_mirror:
+            log("使用淘宝镜像安装前端依赖...", "info")
+            subprocess.check_call("npm install --registry=https://registry.npmmirror.com", shell=True)
+        else:
+            log("使用默认源安装前端依赖...", "info")
+            subprocess.check_call("npm install", shell=True)
+        
+        log("前端依赖安装成功！", "success")
+    except subprocess.CalledProcessError:
+        log("前端依赖安装失败。", "warning")
+        print("    您可以稍后手动运行: cd frontend && npm install")
+    finally:
+        os.chdir(os.path.dirname(__file__))
+
+def phase_6_verify():
     log("阶段 5: 最终自检 (Final Verification)", "step")
     
     print("\nVerifying PyTorch environment...")
@@ -252,7 +328,8 @@ if __name__ == "__main__":
         phase_2_gpu_config()
         phase_3_install()
         phase_4_check_latex()
-        phase_5_verify()
+        phase_5_frontend()
+        phase_6_verify()
     except KeyboardInterrupt:
         print("\n\n用户取消安装。")
     except Exception as e:

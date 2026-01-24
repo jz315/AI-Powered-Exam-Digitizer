@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Body
+from fastapi import FastAPI, HTTPException, Body, Request
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -7,10 +7,53 @@ import json
 import os
 import shutil
 import uuid
+import logging
+import sys
+from logging.handlers import RotatingFileHandler
 from typing import List, Optional, Dict, Any
 from math_digitizer.core.generator import ExamGenerator
+from math_digitizer.api.routers.ocr import register_ocr_routes
+from math_digitizer.api.routers.validate import register_validate_routes
+from math_digitizer.api.routers.settings import register_settings_routes
+from math_digitizer.api.routers.bank import register_bank_routes
+from math_digitizer.api.routers.web_settings import register_web_settings_routes
+
+LOG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
+os.makedirs(LOG_DIR, exist_ok=True)
+LOG_FILE = os.path.join(LOG_DIR, "server.log")
+
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+    handlers=[
+        logging.StreamHandler(sys.stdout),
+        RotatingFileHandler(LOG_FILE, maxBytes=5*1024*1024, backupCount=3, encoding="utf-8"),
+    ]
+)
+logger = logging.getLogger("server")
+logger.info(f"Logging to {LOG_FILE}")
 
 app = FastAPI()
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    logger.info(f">>> {request.method} {request.url.path}")
+    try:
+        response = await call_next(request)
+        logger.info(f"<<< {request.method} {request.url.path} -> {response.status_code}")
+        return response
+    except Exception as e:
+        logger.exception(f"!!! {request.method} {request.url.path} -> Exception: {e}")
+        raise
+
+register_ocr_routes(app)
+register_validate_routes(app)
+register_settings_routes(app)
+register_bank_routes(app)
+register_web_settings_routes(app)
+
+logger.info("Routes registered: OCR, Validate, Settings, Bank, WebSettings")
 
 app.add_middleware(
     CORSMiddleware,
@@ -31,26 +74,18 @@ if not os.path.exists(ASSETS_DIR):
 if not os.path.exists(GENERATED_DIR):
     os.makedirs(GENERATED_DIR, exist_ok=True)
 
+GENERATED_PAPERS_DIR = os.path.join(BANK_DIR, "generated")
+if not os.path.exists(GENERATED_PAPERS_DIR):
+    os.makedirs(GENERATED_PAPERS_DIR, exist_ok=True)
+
 app.mount("/assets", StaticFiles(directory=ASSETS_DIR), name="assets")
+app.mount("/output/question_bank/generated", StaticFiles(directory=GENERATED_PAPERS_DIR), name="generated_papers")
+
 
 class GenerateRequest(BaseModel):
     exam_data: Dict[str, Any]
     title: str = "Math Exam"
 
-@app.get("/api/questions")
-async def get_questions():
-    bank_file = os.path.join(BANK_DIR, "question_bank.json")
-    if not os.path.exists(bank_file):
-        return {"questions": []}
-    
-    try:
-        with open(bank_file, "r", encoding="utf-8") as f:
-            data = json.load(f)
-            if isinstance(data, list):
-                return {"questions": data}
-            return {"questions": data.get("questions", [])}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/generate-pdf")
 async def generate_pdf(request: GenerateRequest):

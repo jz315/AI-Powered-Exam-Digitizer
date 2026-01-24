@@ -34,3 +34,13 @@ layout_models/*.pt
 *.zip
 nul
 .VSCodeCounter/
+
+# Logs & temp
+logs/
+*.log
+run.log
+temp_build/
+
+# IDE
+.idea/
+*.swp

@@ -25,6 +25,7 @@ dependencies = [
     "google-genai",
     "jinja2>=3.1.6",
     "numpy>=2.0.0,<2.4.0",
+    "pytest>=7.0.0",
     "opencv-python>=4.11.0.86",
     "pillow>=10.0.0",
     "pymupdf>=1.24.0",
@@ -48,7 +49,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=7.0.0"]
+dev = []
 layout_pp = ["paddlepaddle", "paddleocr"]
 
 [project.urls]
@@ -72,7 +73,7 @@ exclude = ["output", "output.*", "temp_build", "temp_build.*", ".venv", ".venv.*
 # 参考: https://docs.astral.sh/uv/guides/integration/pytorch/
 # ============================================
 
-# Windows 使用 CUDA 12.4，macOS 使用 CPU（PyPI 默认）
+#Windows 使用 CUDA 12.4，macOS 使用 CPU（PyPI 默认）
 [tool.uv.sources]
  torch = [
      { index = "pytorch-cu124", marker = "sys_platform == 'win32'" },

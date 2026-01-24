@@ -3,6 +3,7 @@ import os
 import re
 import shutil
 import subprocess
+import time
 from pathlib import Path
 from jinja2 import Environment, FileSystemLoader
 
@@ -221,7 +222,7 @@ class ExamGenerator:
             print(f"[error] Template render failed: {e}")
             return None
 
-    def compile_pdf(self, tex_file, *, passes: int = 2):
+    def compile_pdf(self, tex_file, *, passes: int = 2, cancel_check=None):
         """鐠嬪啰鏁� xelatex 缂傛牞鐦� PDF閿涘牓绮拋銈勮⒈濞嗏€蹭簰娣囶喖顦叉い鐢电垳/瀵洜鏁ら敍?"""
         if not tex_file:
             return False
@@ -242,8 +243,31 @@ class ExamGenerator:
         try:
             with open(log_capture_path, "a", encoding="utf-8", errors="replace") as logf:
                 for i in range(passes):
+                    if cancel_check and cancel_check():
+                        logf.write("\n[info] Compile cancelled by user (before pass start)\n")
+                        return False
+
                     logf.write(f"\n===== xelatex pass {i+1}/{passes} =====\n")
-                    subprocess.run(cmd, check=True, stdout=logf, stderr=logf)
+                    proc = subprocess.Popen(cmd, stdout=logf, stderr=logf)
+                    while True:
+                        if cancel_check and cancel_check():
+                            logf.write("\n[info] Compile cancelled by user\n")
+                            try:
+                                proc.terminate()
+                                proc.wait(timeout=5)
+                            except Exception:
+                                try:
+                                    proc.kill()
+                                except Exception:
+                                    pass
+                            return False
+                        if proc.poll() is not None:
+                            break
+                        time.sleep(0.2)
+
+                    if proc.returncode != 0:
+                        raise subprocess.CalledProcessError(proc.returncode, cmd)
+
                     if i + 1 < passes:
                         print(f"[info] Compiling PDF (pass {i+2}/{passes})...")
 

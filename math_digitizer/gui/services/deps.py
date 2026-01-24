@@ -12,7 +12,7 @@ except ImportError:
         def __init__(self, template_file): pass
         def process_data(self, d): return d
         def render(self, d, output_tex): return True
-        def compile_pdf(self, path): return True
+        def compile_pdf(self, path, *, passes: int = 2, cancel_check=None): return True
     
     class ValidationIssue:
         def __init__(self, severity, line, col, message, context, path=""):
