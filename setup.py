@@ -21,9 +21,9 @@ os.system("")
 def print_banner():
     print(Colors.OKBLUE)
     print(r"""
-  __  __       _   _      ____  _       _ _   _              
- |  \/  | __ _| |_| |_   |  _ \(_) __ (_) |_(_)_______ _ __ 
- | |\/| |/ _` | __| '_ \  | | | | |/ _` | | __| |_  / _ \ '__|
+  __  __       _   _       ____  _       _ _   _              
+ |  \/  | __ _| |_| |_    |  _ \(_) __  (_) |_(_)_______ _ __ 
+ | |\/| |/ _` | __| '_ \  | | | | |/ _ `| | __| |_  / _ \ '__|
  | |  | | (_| | |_| | | | | |_| | | (_| | | |_| |/ /  __/ |   
  |_|  |_|\__,_|\__|_| |_| |____/|_|\__, |_|\__|_/___\___|_|   
                                    |___/                      
@@ -113,7 +113,7 @@ def phase_2_gpu_config():
 
     config_path = "pyproject.toml"
     with open(config_path, "r", encoding="utf-8") as f:
-        lines = f.readlines()
+        content = f.read()
 
     needs_cpu_mode = not has_nvidia
     
@@ -123,34 +123,89 @@ def phase_2_gpu_config():
         if choice == 'n':
             needs_cpu_mode = True
 
+    # Robust Block Toggling Logic
+    # We define the GPU block we want to toggle
+    gpu_block_start = "[tool.uv.sources]"
+    
+    # Check current state
+    is_cpu_mode = "# [tool.uv.sources]" in content or "#[tool.uv.sources]" in content
+
     if needs_cpu_mode:
-        log("正在配置 CPU 模式 (修改 pyproject.toml)...", "info")
-        new_lines = []
-        modified = False
-        for line in lines:
-            if 'marker = "sys_platform == \'win32\'"' in line and not line.strip().startswith("#"):
-                new_lines.append(f"# {line}")
-                modified = True
-            else:
-                new_lines.append(line)
-        
-        if modified:
+        if not is_cpu_mode:
+            log("正在配置 CPU 模式 (注释掉 tool.uv.sources)...", "info")
+            # Comment out the block keys to disable custom source
+            new_content = content.replace("[tool.uv.sources]", "# [tool.uv.sources]")
+            new_content = new_content.replace("torch = [", "# torch = [")
+            new_content = new_content.replace("torchvision = [", "# torchvision = [")
+            # Also comment lines starting with { index
+            lines = new_content.splitlines()
+            final_lines = []
+            for line in lines:
+                if '{ index = "pytorch-cu124"' in line and not line.strip().startswith("#"):
+                    final_lines.append("# " + line)
+                elif line.strip() == "]" and (final_lines and "# torch" in final_lines[-2]): # Heuristic for closing bracket
+                     final_lines.append("# ]")
+                else:
+                     final_lines.append(line)
+            
             with open(config_path, "w", encoding="utf-8") as f:
-                f.writelines(new_lines)
+                f.write("\n".join(final_lines))
             log("配置文件已更新为 CPU 模式。", "success")
-    else:
-        log("将安装 GPU 加速版。", "success")
+        else:
+            log("当前已是 CPU 模式。", "info")
+
+    else: # GPU Mode needed
+        if is_cpu_mode:
+            log("正在配置 GPU 模式 (启用 tool.uv.sources)...", "info")
+            # Simple uncomment
+            new_content = content.replace("# [tool.uv.sources]", "[tool.uv.sources]")
+            new_content = new_content.replace("# torch = [", "torch = [")
+            new_content = new_content.replace("# torchvision = [", "torchvision = [")
+            
+            lines = new_content.splitlines()
+            final_lines = []
+            for line in lines:
+                 # Uncomment lines that look like source entries
+                 if line.strip().startswith("#") and '{ index = "pytorch-cu124"' in line:
+                     final_lines.append(line.replace("# ", "", 1).replace("#", "", 1))
+                 elif line.strip().startswith("#") and line.strip().endswith("]") and "]" in line:
+                     # Attempt to uncomment closing brackets if they seem related
+                     # This is tricky without a parser.
+                     # Better approach: Just use the known template if enabling GPU.
+                     final_lines.append(line.replace("# ]", "]"))
+                 else:
+                     final_lines.append(line)
+
+            with open(config_path, "w", encoding="utf-8") as f:
+                 f.write("\n".join(final_lines))
+            log("配置文件已更新为 GPU 模式。", "success")
+        else:
+             log("当前已是 GPU 模式。", "info")
+
 
 def phase_3_install():
     log("阶段 3: 安装项目依赖 (Installing Dependencies)", "step")
     log("正在运行 'uv sync' (首次运行可能需要较长时间，请耐心等待)...", "info")
-    
+
+    mirror_index = os.environ.get("UV_DEFAULT_INDEX", "https://pypi.tuna.tsinghua.edu.cn/simple")
+    index_strategy = os.environ.get("UV_INDEX_STRATEGY", "unsafe-best-match")
+    cmd = ["uv", "sync", "--default-index", mirror_index, "--index-strategy", index_strategy]
+
+    log(f"默认索引: {mirror_index}", "info")
+    log(f"索引策略: {index_strategy}", "info")
+
     try:
-        subprocess.check_call("uv sync", shell=True)
+        subprocess.check_call(cmd)
         log("依赖安装成功！", "success")
     except subprocess.CalledProcessError:
-        log("安装失败。请检查网络连接。", "error")
-        sys.exit(1)
+        log("镜像安装失败，回退到 uv 默认索引重试...", "warning")
+        fallback_cmd = ["uv", "sync", "--index-strategy", index_strategy]
+        try:
+            subprocess.check_call(fallback_cmd)
+            log("依赖安装成功！", "success")
+        except subprocess.CalledProcessError:
+            log("安装失败。请检查网络连接或索引配置。", "error")
+            sys.exit(1)
 
 def phase_4_check_latex():
     log("阶段 4: 检查 LaTeX 环境 (Check LaTeX)", "step")

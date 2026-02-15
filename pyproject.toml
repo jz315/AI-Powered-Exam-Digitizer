@@ -7,7 +7,7 @@ name = "math-digitizer"
 version = "0.1.0"
 description = "智能数学试卷排版工具 - 将 LLM 生成的 JSON 转换为 LaTeX 试卷 PDF"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.11,<3.13"
 license = "MIT"
 keywords = ["latex", "exam", "math", "ocr", "pdf", "digitizer"]
 classifiers = [
@@ -70,13 +70,13 @@ include = ["math_digitizer*"]
 # ============================================
 
 # Windows 使用 CUDA 12.4，macOS 使用 CPU（PyPI 默认）
-[tool.uv.sources]
-torch = [
-    { index = "pytorch-cu124", marker = "sys_platform == 'win32'" },
-]
-torchvision = [
-    { index = "pytorch-cu124", marker = "sys_platform == 'win32'" },
-]
+# [tool.uv.sources]
+# torch = [
+#     { index = "pytorch-cu124", marker = "sys_platform == 'win32'" },
+# ]
+# torchvision = [
+#     { index = "pytorch-cu124", marker = "sys_platform == 'win32'" },
+# ]
 
 [[tool.uv.index]]
 name = "pytorch-cu124"

@@ -166,6 +166,9 @@ cd AI-Powered-Exam-Digitizer
 # Windows: 自动识别并安装 CUDA 12.4 版本的 PyTorch (无需手动配置)
 # macOS/Linux: 自动安装 CPU 版本
 uv sync
+
+# 国内网络建议（可避免多索引解析冲突）
+uv sync --default-index https://pypi.tuna.tsinghua.edu.cn/simple --index-strategy unsafe-best-match
 ```
 
 ### 验证 GPU 是否可用 (Windows)
