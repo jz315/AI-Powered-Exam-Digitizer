@@ -7,7 +7,7 @@ name = "math-digitizer"
 version = "0.1.0"
 description = "智能数学试卷排版工具 - 将 LLM 生成的 JSON 转换为 LaTeX 试卷 PDF"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.11,<3.13"
 license = "MIT"
 keywords = ["latex", "exam", "math", "ocr", "pdf", "digitizer"]
 classifiers = [
@@ -25,7 +25,6 @@ dependencies = [
     "google-genai",
     "jinja2>=3.1.6",
     "numpy>=2.0.0,<2.4.0",
-    "pytest>=7.0.0",
     "opencv-python>=4.11.0.86",
     "pillow>=10.0.0",
     "pymupdf>=1.24.0",
@@ -43,13 +42,10 @@ dependencies = [
     # PyTorch - 通过 tool.uv.sources 指定 index
     "torch>=2.0.0",
     "torchvision>=0.15.0",
-    "matplotlib>=3.8.0",
-    "fastapi>=0.128.0",
-    "uvicorn>=0.40.0",
 ]
 
 [project.optional-dependencies]
-dev = []
+dev = ["pytest>=7.0.0", "pyinstaller>=6.0.0"]
 layout_pp = ["paddlepaddle", "paddleocr"]
 
 [project.urls]
@@ -59,28 +55,28 @@ Issues = "https://github.com/jz315/AI-Powered-Exam-Digitizer/issues"
 
 [project.scripts]
 math-digitizer = "main:main"
+pdf-layout = "pdf_ocr_cli:main"
 
 [tool.setuptools]
-py-modules = ["main"]
+py-modules = ["main", "pdf_ocr_cli"]
 
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["math_digitizer*"]
-exclude = ["output", "output.*", "temp_build", "temp_build.*", ".venv", ".venv.*", "dist", "build"]
 
 # ============================================
 # uv PyTorch 配置
 # 参考: https://docs.astral.sh/uv/guides/integration/pytorch/
 # ============================================
 
-#Windows 使用 CUDA 12.4，macOS 使用 CPU（PyPI 默认）
-[tool.uv.sources]
- torch = [
-     { index = "pytorch-cu124", marker = "sys_platform == 'win32'" },
- ]
- torchvision = [
-    { index = "pytorch-cu124", marker = "sys_platform == 'win32'" },
- ]
+# Windows 使用 CUDA 12.4，macOS 使用 CPU（PyPI 默认）
+# [tool.uv.sources]
+# torch = [
+#     { index = "pytorch-cu124", marker = "sys_platform == 'win32'" },
+# ]
+# torchvision = [
+#     { index = "pytorch-cu124", marker = "sys_platform == 'win32'" },
+# ]
 
 [[tool.uv.index]]
 name = "pytorch-cu124"
