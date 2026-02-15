@@ -4,8 +4,9 @@ from typing import Optional
 
 from math_digitizer.utils.paths import get_resource_path
 from math_digitizer.config import get_config, get_api_key, SecretKey
+from math_digitizer.config.settings import LayoutConfig
 
-DEFAULT_LAYOUT_MODEL = "doclayout_yolo"
+DEFAULT_LAYOUT_MODEL = LayoutConfig().model
 LAYOUT_MODEL_LABELS = {
     "doclayout_yolo": "DocLayout-YOLO (DocStructBench 1280)",
     "pp_doclayout_plus_l": "PP-DocLayout_plus-L (PaddleOCR)",
@@ -43,12 +44,16 @@ def ensure_model_exists() -> Path:
     if model_path.exists():
         return model_path
 
-    print(f"模型文件不存在，尝试从 HuggingFace 下载: {MODEL_FILENAME}")
+    print(f"模型文件不存在，尝试下载: {MODEL_FILENAME}")
     MODEL_DIR.mkdir(parents=True, exist_ok=True)
 
+    from huggingface_hub import hf_hub_download
+    
+    original_endpoint = os.environ.get("HF_ENDPOINT", "")
+    
+    os.environ["HF_ENDPOINT"] = "https://hf-mirror.com"
+    print("尝试使用国内镜像 (hf-mirror.com) 下载...")
     try:
-        from huggingface_hub import hf_hub_download
-
         downloaded_path = hf_hub_download(
             repo_id=HF_REPO_ID,
             filename=MODEL_FILENAME,
@@ -56,15 +61,35 @@ def ensure_model_exists() -> Path:
         )
         print(f"模型下载完成: {downloaded_path}")
         return Path(downloaded_path)
-    except Exception as e:
-        raise RuntimeError(
-            f"""无法下载模型文件: {e}
+    except Exception as e1:
+        print(f"镜像下载失败: {e1}")
+    
+    if original_endpoint:
+        os.environ["HF_ENDPOINT"] = original_endpoint
+    else:
+        os.environ.pop("HF_ENDPOINT", None)
+    
+    print("尝试使用 HuggingFace 官方源下载...")
+    try:
+        downloaded_path = hf_hub_download(
+            repo_id=HF_REPO_ID,
+            filename=MODEL_FILENAME,
+            local_dir=str(MODEL_DIR),
+        )
+        print(f"模型下载完成: {downloaded_path}")
+        return Path(downloaded_path)
+    except Exception as e2:
+        print(f"官方源下载失败: {e2}")
+    
+    raise RuntimeError(
+        f"""无法自动下载模型文件。
 
-请手动下载模型:
-  1. 访问 https://huggingface.co/{HF_REPO_ID}
+请手动下载:
+  1. 访问 https://hf-mirror.com/{HF_REPO_ID}
+     或 https://huggingface.co/{HF_REPO_ID}
   2. 下载 {MODEL_FILENAME}
   3. 放到 {MODEL_DIR}/ 目录下"""
-        ) from e
+    )
 
 
 def layout_model_label_from_key(key: str) -> str:

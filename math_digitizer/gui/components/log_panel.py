@@ -7,14 +7,8 @@ import time
 
 
 class LogMixin:
-    LOG_LEVEL_INFO = "info"
-    LOG_LEVEL_WARN = "warn"
-    LOG_LEVEL_ERROR = "error"
-    LOG_LEVEL_DEBUG = "debug"
 
     def _append_log(self, msg: str, level: str = "info"):
-        if not hasattr(self, "log_textbox"):
-            return
         ts = time.strftime("%H:%M:%S", time.localtime())
         level = level.lower()
         prefix_map = {
@@ -27,22 +21,18 @@ class LogMixin:
         }
         prefix = prefix_map.get(level, "INFO")
         line = f"[{ts}] [{prefix}] {msg}\n"
-        self.after(0, lambda: self._update_log_ui(line, level))
-        with self._log_lock:
-            with open(self._log_path, "a", encoding="utf-8") as f:
-                f.write(line)
+        if hasattr(self, "log_textbox"):
+            self.after(0, lambda l=line, lv=level: self._update_log_ui(l, lv))
+        if hasattr(self, "ocr_console"):
+            self.after(0, lambda l=line: self._update_ocr_console_ui(l))
+        if hasattr(self, "_log_lock") and hasattr(self, "_log_path"):
+            with self._log_lock:
+                with open(self._log_path, "a", encoding="utf-8") as f:
+                    f.write(line)
 
-    def log_info(self, msg: str):
-        self._append_log(msg, "info")
-
-    def log_warn(self, msg: str):
-        self._append_log(msg, "warn")
-
-    def log_error(self, msg: str):
-        self._append_log(msg, "error")
-
-    def log_debug(self, msg: str):
-        self._append_log(msg, "debug")
+    def flash_status(self, msg: str):
+        self.after(0, lambda: self.status_label.configure(text=msg))
+        self._append_log(msg)
 
     def _update_log_ui(self, line: str, level: str = "info"):
         try:
@@ -65,6 +55,17 @@ class LogMixin:
 
             self.log_textbox.see("end")
             self.log_textbox.configure(state="disabled")
+        except Exception:
+            pass
+
+    def _update_ocr_console_ui(self, line: str):
+        try:
+            if not hasattr(self, "ocr_console"):
+                return
+            self.ocr_console.configure(state="normal")
+            self.ocr_console.insert("end", line)
+            self.ocr_console.see("end")
+            self.ocr_console.configure(state="disabled")
         except Exception:
             pass
 

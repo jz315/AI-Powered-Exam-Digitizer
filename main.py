@@ -12,7 +12,7 @@ def _fix_stdio_for_frozen() -> None:
             sys.stdout = open(os.devnull, 'w', encoding='utf-8')
         if sys.stderr is None:
             sys.stderr = open(os.devnull, 'w', encoding='utf-8')
-
+   
 
 def _ensure_utf8_stdio() -> None:
     try:

@@ -6,7 +6,6 @@ from math_digitizer.core.validator import (
     extract_first_latex_error,
     validate_json_and_latex,
 )
-
 __all__ = [
     "ExamGenerator",
     "ValidationIssue",

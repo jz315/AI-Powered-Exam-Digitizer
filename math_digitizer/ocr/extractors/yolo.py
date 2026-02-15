@@ -326,6 +326,7 @@ class DocLayoutExtractor:
                 cb(event="page_detected", page=page_idx + 1, total=total_pages, items=len(valid_items), model="doclayout_yolo")
 
             # --- 步骤 6: 裁剪并保存 ---
+            page_items = []
             for i, item in enumerate(valid_items):
                 label = item["label"]
                 xyxy = item["xyxy"]
@@ -346,16 +347,25 @@ class DocLayoutExtractor:
                 crop.save(file_path)
                 file_str = str(file_path)
                 saved_files.append(file_str)
-                saved_items.append({
+                page_item = {
                     "label": label,
                     "path": file_str,
                     "page": page_idx + 1,
                     "index": i,
                     "xyxy": [x1, y1, x2, y2],
-                })
+                }
+                page_items.append(page_item)
+                saved_items.append(page_item)
 
             if cb:
-                cb(event="page_saved", page=page_idx + 1, total=total_pages, items=len(valid_items), model="doclayout_yolo")
+                cb(
+                    event="page_saved",
+                    page=page_idx + 1,
+                    total=total_pages,
+                    items=len(valid_items),
+                    items_list=page_items,
+                    model="doclayout_yolo",
+                )
 
         doc.close()
         if return_items:

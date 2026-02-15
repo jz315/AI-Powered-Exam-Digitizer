@@ -11,7 +11,7 @@ from PIL import Image, ImageDraw
 from math_digitizer.ocr.base import parse_page_range
 from math_digitizer.ocr.extractors.yolo import DocLayoutExtractor
 from math_digitizer.ocr.extractors.deepseek import DeepseekOcrLayoutExtractor
-from math_digitizer.config import get_api_key, SecretKey
+from math_digitizer.config import get_api_key, get_config, SecretKey
 
 
 class AutoRouterLayoutExtractor:
@@ -51,7 +51,7 @@ class AutoRouterLayoutExtractor:
         self._close_kernel = int(close_kernel)
         self._use_gemini_probe = bool(use_gemini_probe)
         self._gemini_api_key = (gemini_api_key or get_api_key(SecretKey.GEMINI) or os.getenv("GEMINI_API_KEY", "")).strip()
-        self._gemini_model = (gemini_model or "gemini-2.5-flash-lite").strip()
+        self._gemini_model = (gemini_model or get_config().auto_router.gemini_model).strip()
         self._use_second_pass = bool(use_second_pass)
         self._router_mode = (router_mode or "any").strip().lower()
 
@@ -319,6 +319,7 @@ class AutoRouterLayoutExtractor:
             file_path = save_dir / filename
             crop.save(file_path)
             file_str = str(file_path)
+
             saved_files.append(file_str)
             saved_items.append({
                 "label": label,
@@ -422,7 +423,14 @@ class AutoRouterLayoutExtractor:
 
             self._save_items(img, items, save_dir, page_idx, saved_files, saved_items)
             if cb:
-                cb(event="page_saved", page=page_idx + 1, total=total_pages, items=len(items), model="auto_router")
+                cb(
+                    event="page_saved",
+                    page=page_idx + 1,
+                    total=total_pages,
+                    items=len(items),
+                    items_list=items,
+                    model="auto_router",
+                )
 
         doc.close()
         if return_items:

@@ -3,6 +3,7 @@ import os
 import re
 import shutil
 import subprocess
+import time
 from pathlib import Path
 from jinja2 import Environment, FileSystemLoader
 
@@ -105,29 +106,35 @@ class ExamGenerator:
         return data
 
 
-    def replace_inline_images(self, data, asset_dir: str, *, asset_rel: str = "assets", width: str = r"0.3\linewidth", priority_dir: str | None = None) -> list[str]:
+    def replace_inline_images(self, data, asset_dir: str, *, asset_rel: str = "assets", width: str = r"0.3\linewidth") -> tuple[list[str], list[str]]:
+        """
+        Replace inline markdown images with LaTeX includegraphics.
+        
+        Returns:
+            tuple: (missing_images, warnings)
+                - missing_images: List of image paths that couldn't be found
+                - warnings: List of validation warning messages
+        """
+        warnings: list[str] = []
+        
         if not data:
-            return []
+            warnings.append("No data provided for image processing")
+            return [], warnings
+
+        image_base_dir = data.get("meta", {}).get("image_base_dir", "")
+        if not image_base_dir:
+            warnings.append("JSON中缺少 meta.image_base_dir 字段，跳过图片处理。请确保AI输出包含此字段。")
+            return [], warnings
+        
+        base_path = Path(image_base_dir)
+        if not base_path.exists():
+            warnings.append(f"图片目录不存在: {image_base_dir}")
+            return [], warnings
 
         missing: list[str] = []
         counter = 0
         asset_root = Path(asset_dir)
         asset_root.mkdir(parents=True, exist_ok=True)
-
-        # Priority directory for image search (typically the OCR output folder)
-        priority_path = Path(priority_dir) if priority_dir else None
-
-        def find_in_pdf_ocr_root(filename: str) -> Path | None:
-            name = filename.strip()
-            if not name or ("/" in name) or ("\\" in name):
-                return None
-            
-            if priority_path and priority_path.exists():
-                candidate = priority_path / name
-                if candidate.exists():
-                    return candidate
-            
-            return None
 
         def resolve_source(path_str: str) -> Path | None:
             raw = path_str.strip().strip("\"").strip("'")
@@ -138,18 +145,11 @@ class ExamGenerator:
                 raw = _unquote(raw)
             except Exception:
                 pass
-            src = Path(raw)
-            if src.exists():
-                return src
-            cwd_candidate = Path.cwd() / raw
-            if cwd_candidate.exists():
-                return cwd_candidate
-            root_candidate = self._template_path.parent.parent / raw
-            if root_candidate.exists():
-                return root_candidate
-            filename_match = find_in_pdf_ocr_root(raw)
-            if filename_match and filename_match.exists():
-                return filename_match
+            
+            filename = Path(raw).name
+            candidate = base_path / filename
+            if candidate.exists():
+                return candidate
             return None
 
         def copy_to_assets(src_path: str) -> str | None:
@@ -160,6 +160,7 @@ class ExamGenerator:
             counter += 1
             ext = src.suffix if src.suffix else ".png"
             dest_name = f"img-{counter:04d}{ext}"
+            
             dest = asset_root / dest_name
             try:
                 shutil.copy2(src, dest)
@@ -199,7 +200,7 @@ class ExamGenerator:
                 if isinstance(q, dict):
                     walk_question(q)
 
-        return missing
+        return missing, warnings
 
     def render(self, data, output_tex='math_exam.tex'):
         """濞撳弶鐓� LaTeX 濡剝婢�"""
@@ -221,7 +222,7 @@ class ExamGenerator:
             print(f"[error] Template render failed: {e}")
             return None
 
-    def compile_pdf(self, tex_file, *, passes: int = 2):
+    def compile_pdf(self, tex_file, *, passes: int = 2, cancel_check=None):
         """鐠嬪啰鏁� xelatex 缂傛牞鐦� PDF閿涘牓绮拋銈勮⒈濞嗏€蹭簰娣囶喖顦叉い鐢电垳/瀵洜鏁ら敍?"""
         if not tex_file:
             return False
@@ -242,8 +243,31 @@ class ExamGenerator:
         try:
             with open(log_capture_path, "a", encoding="utf-8", errors="replace") as logf:
                 for i in range(passes):
+                    if cancel_check and cancel_check():
+                        logf.write("\n[info] Compile cancelled by user (before pass start)\n")
+                        return False
+
                     logf.write(f"\n===== xelatex pass {i+1}/{passes} =====\n")
-                    subprocess.run(cmd, check=True, stdout=logf, stderr=logf)
+                    proc = subprocess.Popen(cmd, stdout=logf, stderr=logf)
+                    while True:
+                        if cancel_check and cancel_check():
+                            logf.write("\n[info] Compile cancelled by user\n")
+                            try:
+                                proc.terminate()
+                                proc.wait(timeout=5)
+                            except Exception:
+                                try:
+                                    proc.kill()
+                                except Exception:
+                                    pass
+                            return False
+                        if proc.poll() is not None:
+                            break
+                        time.sleep(0.2)
+
+                    if proc.returncode != 0:
+                        raise subprocess.CalledProcessError(proc.returncode, cmd)
+
                     if i + 1 < passes:
                         print(f"[info] Compiling PDF (pass {i+2}/{passes})...")
 

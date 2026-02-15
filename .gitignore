@@ -6,7 +6,7 @@ dist/
 wheels/
 *.egg-info
 output/
-temp_build/
+
 
 # LaTeX build artifacts
 *.aux
@@ -17,7 +17,8 @@ temp_build/
 *.fdb_latexmk
 *.synctex.gz
 *.xelatex.txt
-
+*.xdv
+*.bak0
 # Virtual environments
 .venv
 .venv-gpu
@@ -33,3 +34,13 @@ layout_models/*.pt
 *.zip
 nul
 .VSCodeCounter/
+
+# Logs & temp
+logs/
+*.log
+run.log
+temp_build/
+
+# IDE
+.idea/
+*.swp

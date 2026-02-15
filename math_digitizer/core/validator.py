@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import bisect
 import json
 import os
 import re
@@ -34,7 +35,7 @@ def validate_json_and_latex(json_str: str) -> tuple[Any | None, list[ValidationI
         return None, issues
 
     issues.extend(_validate_schema(data))
-    issues.extend(_validate_all_strings(data))
+    issues.extend(_validate_all_strings(data, json_str))
     return data, issues
 
 
@@ -267,10 +268,12 @@ def _validate_schema(data: Any) -> list[ValidationIssue]:
     return issues
 
 
-def _validate_all_strings(data: Any) -> list[ValidationIssue]:
+def _validate_all_strings(data: Any, raw: str) -> list[ValidationIssue]:
     issues: list[ValidationIssue] = []
+    locator = _StringLocator(raw)
     for path, s in _iter_strings(data):
-        issues.extend(_validate_latex_string(s, path))
+        line, col = locator.locate(path, s)
+        issues.extend(_validate_latex_string(s, path, line=line, col=col))
     return issues
 
 
@@ -287,7 +290,7 @@ def _iter_strings(obj: Any, path: str = "") -> Iterable[tuple[str, str]]:
         yield path, obj
 
 
-def _validate_latex_string(s: str, path: str) -> list[ValidationIssue]:
+def _validate_latex_string(s: str, path: str, line: int | None = None, col: int | None = None) -> list[ValidationIssue]:
     issues: list[ValidationIssue] = []
 
     # 明确的非 LaTeX 字段：避免误报（例如 sections[*].type = "single_choice"）
@@ -302,6 +305,8 @@ def _validate_latex_string(s: str, path: str) -> list[ValidationIssue]:
             ValidationIssue(
                 severity="error",
                 path=path,
+                line=line,
+                col=col,
                 message=f"检测到控制字符 {sample}（疑似 JSON 中反斜杠未写成 \\\\，例如 \\\\frac / \\\\begin）",
             )
         )
@@ -309,7 +314,7 @@ def _validate_latex_string(s: str, path: str) -> list[ValidationIssue]:
     # 2) $ 是否成对（忽略 \$）
     dollar_count = len(re.findall(r"(?<!\\)\$", s))
     if dollar_count % 2 == 1:
-        issues.append(ValidationIssue(severity="error", path=path, message="检测到未成对的 $（数学模式可能未闭合）"))
+        issues.append(ValidationIssue(severity="error", path=path, line=line, col=col, message="检测到未成对的 $（数学模式可能未闭合）"))
 
     # 3) $$ 提示（不阻断）
     if re.search(r"(?<!\\)\$\$", s):
@@ -317,29 +322,31 @@ def _validate_latex_string(s: str, path: str) -> list[ValidationIssue]:
             ValidationIssue(
                 severity="warning",
                 path=path,
+                line=line,
+                col=col,
                 message="检测到 $$...$$（部分模板/环境不友好，建议改用 $...$ 或 \\\\[...\\\\]）",
             )
         )
 
     # 4) 花括号简单配对（低成本预警）
     if s.count("{") != s.count("}"):
-        issues.append(ValidationIssue(severity="warning", path=path, message="检测到 { } 数量不一致（可能存在括号未闭合）"))
+        issues.append(ValidationIssue(severity="warning", path=path, line=line, col=col, message="检测到 { } 数量不一致（可能存在括号未闭合）"))
 
     # 5) \left / \right 配对
     left_n = len(re.findall(r"\\left\b", s))
     right_n = len(re.findall(r"\\right\b", s))
     if left_n != right_n:
-        issues.append(ValidationIssue(severity="warning", path=path, message="检测到 \\left 与 \\right 数量不一致"))
+        issues.append(ValidationIssue(severity="warning", path=path, line=line, col=col, message="检测到 \\left 与 \\right 数量不一致"))
 
     # 6) begin/end 环境匹配（尽量不误报）
-    issues.extend(_check_env_balance(s, path))
+        issues.extend(_check_env_balance(s, path, line=line, col=col))
 
     # 7) 常见未转义字符（仅提示）
     # 仅检测“非数学模式”部分，避免把 $...$ / \(...\) / \[...\] 内部的下标等误报。
     non_math = _strip_math_segments(s).replace("__BLANK__", "")
     for ch, desc in [("%", "可能会注释后续内容"), ("&", "表格对齐符"), ("#", "参数符"), ("_", "下标符")]:
         if re.search(rf"(?<!\\){re.escape(ch)}", non_math):
-            issues.append(ValidationIssue(severity="warning", path=path, message=f"检测到未转义的 {ch}（{desc}）"))
+            issues.append(ValidationIssue(severity="warning", path=path, line=line, col=col, message=f"检测到未转义的 {ch}（{desc}）"))
 
     return issues
 
@@ -357,7 +364,7 @@ def _strip_math_segments(s: str) -> str:
     return out
 
 
-def _check_env_balance(s: str, path: str) -> list[ValidationIssue]:
+def _check_env_balance(s: str, path: str, line: int | None = None, col: int | None = None) -> list[ValidationIssue]:
     issues: list[ValidationIssue] = []
     begins = list(re.finditer(r"\\begin\{([^}]+)\}", s))
     ends = list(re.finditer(r"\\end\{([^}]+)\}", s))
@@ -377,13 +384,86 @@ def _check_env_balance(s: str, path: str) -> list[ValidationIssue]:
             stack.append(name)
         else:
             if not stack:
-                issues.append(ValidationIssue(severity="warning", path=path, message=f"检测到 \\end{{{name}}} 但缺少对应的 \\begin"))
+                issues.append(ValidationIssue(severity="warning", path=path, line=line, col=col, message=f"检测到 \\end{{{name}}} 但缺少对应的 \\begin"))
                 continue
             top = stack.pop()
             if top != name:
-                issues.append(ValidationIssue(severity="warning", path=path, message=f"环境不匹配：\\begin{{{top}}} ... \\end{{{name}}}"))
+                issues.append(ValidationIssue(severity="warning", path=path, line=line, col=col, message=f"环境不匹配：\\begin{{{top}}} ... \\end{{{name}}}"))
 
     for name in reversed(stack):
-        issues.append(ValidationIssue(severity="warning", path=path, message=f"检测到 \\begin{{{name}}} 但缺少对应的 \\end"))
+        issues.append(ValidationIssue(severity="warning", path=path, line=line, col=col, message=f"检测到 \\begin{{{name}}} 但缺少对应的 \\end"))
 
     return issues
+
+
+class _StringLocator:
+    def __init__(self, raw: str) -> None:
+        self.raw = raw
+        self.line_starts = [0]
+        for i, ch in enumerate(raw):
+            if ch == "\n":
+                self.line_starts.append(i + 1)
+
+    def locate(self, path: str, value: str) -> tuple[int | None, int | None]:
+        idx = self._find_best_match(path, value)
+        if idx is None:
+            return None, None
+        line = bisect.bisect_right(self.line_starts, idx)
+        col = idx - self.line_starts[line - 1] + 1
+        return line, col
+
+    def _find_best_match(self, path: str, value: str) -> int | None:
+        literals = self._candidate_literals(value)
+        occurrences: list[int] = []
+        for lit in literals:
+            start = 0
+            while True:
+                idx = self.raw.find(lit, start)
+                if idx == -1:
+                    break
+                occurrences.append(idx)
+                start = idx + len(lit)
+
+        if not occurrences:
+            return None
+        if len(occurrences) == 1:
+            return occurrences[0]
+
+        key = self._extract_last_key(path)
+        if key:
+            key_token = f"\"{key}\""
+            key_positions: list[int] = []
+            start = 0
+            while True:
+                kidx = self.raw.find(key_token, start)
+                if kidx == -1:
+                    break
+                key_positions.append(kidx)
+                start = kidx + len(key_token)
+
+            for kidx in key_positions:
+                for lit in literals:
+                    idx = self.raw.find(lit, kidx)
+                    if idx != -1:
+                        return idx
+
+        return occurrences[0]
+
+    def _candidate_literals(self, value: str) -> list[str]:
+        literals = []
+        dumped = json.dumps(value, ensure_ascii=False)
+        literals.append(dumped)
+        dumped_ascii = json.dumps(value, ensure_ascii=True)
+        if dumped_ascii != dumped:
+            literals.append(dumped_ascii)
+        return literals
+
+    def _extract_last_key(self, path: str) -> str | None:
+        if not path:
+            return None
+        parts = path.split(".")
+        for part in reversed(parts):
+            key = part.split("[", 1)[0]
+            if key:
+                return key
+        return None

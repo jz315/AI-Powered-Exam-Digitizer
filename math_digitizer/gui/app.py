@@ -7,13 +7,14 @@ import customtkinter as ctk
 
 from math_digitizer.utils.paths import get_resource_path
 from math_digitizer.gui.services.deps import ExamGenerator, validate_json_and_latex
-from math_digitizer.gui.components import UiMixin, PdfOcrMixin, EditorMixin, LogMixin, GenerationMixin, StatusMixin
+from math_digitizer.gui.services import OcrService, GenerationService, BankService, PromptService, TaskManager, OcrWorkflow
+from math_digitizer.gui.components import UiMixin, PdfOcrMixin, EditorMixin, LogMixin, GenerationMixin, BankMixin
 from math_digitizer.gui.theme import Theme
 
 ctk.set_appearance_mode("System")
 ctk.set_default_color_theme("blue")
 
-class PremiumExamApp(ctk.CTk, UiMixin, PdfOcrMixin, EditorMixin, LogMixin, GenerationMixin, StatusMixin):
+class PremiumExamApp(ctk.CTk, UiMixin, PdfOcrMixin, EditorMixin, LogMixin, GenerationMixin, BankMixin):
     def __init__(self):
         super().__init__()
         Theme.init_fonts(self, base_dir=os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir)))
@@ -38,7 +39,17 @@ class PremiumExamApp(ctk.CTk, UiMixin, PdfOcrMixin, EditorMixin, LogMixin, Gener
         self._pdf_ocr_preview = None
         self._log_lock = threading.Lock()
         self._log_path = self._init_log_file()
-        self._layout_extractors = {}
+        self.ocr_service = OcrService()
+        self.generation_service = GenerationService()
+        self.ocr_workflow = OcrWorkflow(self.ocr_service)
+        self.task_manager = TaskManager(
+            on_show_cancel=self._show_cancel_button,
+            on_hide_cancel=self._hide_cancel_button,
+            on_status=self.flash_status,
+            on_log=self._append_log,
+        )
+        self.bank_service = BankService()
+        self.prompt_service = PromptService()
 
         # === 界面初始化 ===
         self.setup_header()       # 顶部标题栏
