@@ -28,16 +28,14 @@ class UiMixin:
         ctk.CTkLabel(title_box, text="📐 数学试卷数字化工具", font=(Theme.FONT_FAMILY_BOLD[0], 20), text_color=Theme.COLOR_TEXT_PRIMARY).pack(side="left")
         ctk.CTkLabel(title_box, text=" v2.0", font=(Theme.FONT_FAMILY[0], 12), text_color=Theme.COLOR_TEXT_SECONDARY).pack(side="left", pady=(8,0))
 
-        # GPU/CPU 指示器
-        gpu_available, gpu_info = self._detect_gpu()
-        gpu_text = f"🚀 {gpu_info}" if gpu_available else "💻 CPU"
-        gpu_color = "#22c55e" if gpu_available else Theme.COLOR_TEXT_SECONDARY
+        # GPU/CPU 指示器 (延迟检测，避免启动时导入 torch)
         self.gpu_label = ctk.CTkLabel(
-            header_frame, text=gpu_text,
+            header_frame, text="⏳ 检测中...",
             font=(Theme.FONT_FAMILY[0], 12),
-            text_color=gpu_color
+            text_color=Theme.COLOR_TEXT_SECONDARY
         )
         self.gpu_label.pack(side="right", padx=(10, 0))
+        self.after(100, self._detect_gpu_async)
 
         self.cancel_task_btn = ctk.CTkButton(
             header_frame,
@@ -55,6 +53,22 @@ class UiMixin:
         # 状态指示器
         self.status_label = ctk.CTkLabel(header_frame, text="Ready", font=(Theme.FONT_FAMILY[0], 13), text_color=Theme.COLOR_TEXT_SECONDARY)
         self.status_label.pack(side="right")
+
+    def _detect_gpu_async(self):
+        import threading
+        def detect():
+            result = self._detect_gpu()
+            try:
+                self.after(0, lambda: self._update_gpu_label(result))
+            except Exception:
+                pass
+        threading.Thread(target=detect, daemon=True).start()
+
+    def _update_gpu_label(self, result):
+        gpu_available, gpu_info = result
+        gpu_text = f"🚀 {gpu_info}" if gpu_available else "💻 CPU"
+        gpu_color = "#22c55e" if gpu_available else Theme.COLOR_TEXT_SECONDARY
+        self.gpu_label.configure(text=gpu_text, text_color=gpu_color)
 
     def _detect_gpu(self):
         try:
@@ -140,8 +154,33 @@ class UiMixin:
         issues_frame.grid_rowconfigure(1, weight=1)
         issues_frame.grid_columnconfigure(0, weight=1)
 
-        self.issues_header_label = ctk.CTkLabel(issues_frame, text="✓ 校验通过", font=(Theme.FONT_FAMILY_BOLD[0], 13), text_color=Theme.COLOR_GREEN_BTN)
-        self.issues_header_label.grid(row=0, column=0, sticky="w", padx=10, pady=(5, 0))
+        issues_header_row = ctk.CTkFrame(issues_frame, fg_color="transparent")
+        issues_header_row.grid(row=0, column=0, sticky="ew", padx=10, pady=(5, 0))
+
+        self.issues_header_label = ctk.CTkLabel(issues_header_row, text="✓ 校验通过", font=(Theme.FONT_FAMILY_BOLD[0], 13), text_color=Theme.COLOR_GREEN_BTN)
+        self.issues_header_label.pack(side="left")
+
+        self.btn_replace_unicode = ctk.CTkButton(
+            issues_header_row,
+            text="🔄 替换 Unicode",
+            command=self._replace_unicode_in_editor,
+            fg_color=Theme.COLOR_BLUE_BTN,
+            width=120,
+            height=24,
+            font=(Theme.FONT_FAMILY[0], 11),
+        )
+        self.btn_replace_unicode.pack(side="right")
+
+        self.btn_wrap_math = ctk.CTkButton(
+            issues_header_row,
+            text="📐 包裹公式",
+            command=self._wrap_math_in_editor,
+            fg_color=Theme.COLOR_GREEN_BTN,
+            width=100,
+            height=24,
+            font=(Theme.FONT_FAMILY[0], 11),
+        )
+        self.btn_wrap_math.pack(side="right", padx=(0, 5))
 
         self.issues_textbox = ctk.CTkTextbox(issues_frame, font=(Theme.FONT_CODE[0], 12), fg_color="transparent", height=80, activate_scrollbars=True)
         self.issues_textbox.grid(row=1, column=0, sticky="nsew", padx=5, pady=5)

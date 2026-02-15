@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import customtkinter as ctk
 
+from math_digitizer.core.validator import format_issues_gcc_style, replace_unicode_math, wrap_math_expressions
 from math_digitizer.gui.theme import Theme
 
 
@@ -55,7 +56,7 @@ class EditorMixin:
         self._set_issues_panel([], header="⏳ 校验中...")
         self._validation_request_event.set()
 
-    def _set_issues_panel(self, issues, header=None):
+    def _set_issues_panel(self, issues, header=None, source: str = ""):
         self._last_issues = issues
         errs = sum(1 for i in issues if i.severity == "error")
         warns = sum(1 for i in issues if i.severity == "warning")
@@ -69,12 +70,36 @@ class EditorMixin:
             self.issues_header_label.configure(text=header, text_color=color)
 
         if hasattr(self, "issues_textbox"):
-            text = ""
-            for it in issues[:50]:
-                text += f"[{it.severity.upper()}] Line {it.line}: {it.message}\n"
+            text = format_issues_gcc_style(issues[:50], source=source)
             self.issues_textbox.configure(state="normal")
             self.issues_textbox.delete("0.0", "end")
             self.issues_textbox.insert("end", text)
             self.issues_textbox.configure(state="disabled")
             self._apply_issue_highlights(issues)
+
+    def _replace_unicode_in_editor(self):
+        if not hasattr(self, "json_textbox"):
+            return
+        json_str = self.json_textbox.get("0.0", "end")
+        new_text, count = replace_unicode_math(json_str)
+        if count == 0:
+            self.flash_status("✓ 没有发现需要替换的 Unicode 符号")
+            return
+        self.json_textbox.delete("0.0", "end")
+        self.json_textbox.insert("0.0", new_text.rstrip())
+        self.flash_status(f"✅ 已替换 {count} 个 Unicode 符号")
+        self.on_json_change()
+
+    def _wrap_math_in_editor(self):
+        if not hasattr(self, "json_textbox"):
+            return
+        json_str = self.json_textbox.get("0.0", "end")
+        new_text, count = wrap_math_expressions(json_str)
+        if count == 0:
+            self.flash_status("✓ 没有发现需要包裹的数学表达式")
+            return
+        self.json_textbox.delete("0.0", "end")
+        self.json_textbox.insert("0.0", new_text.rstrip())
+        self.flash_status(f"✅ 已包裹 {count} 处数学表达式")
+        self.on_json_change()
 

@@ -1,0 +1,1 @@
+- Kept Unicode symbol tests as “no control-character error” checks since validator currently does not emit Unicode-specific warnings.

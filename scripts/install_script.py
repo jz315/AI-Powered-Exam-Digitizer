@@ -227,29 +227,31 @@ def phase_3_install():
     choice = input(f"{Colors.BOLD}是否使用国内镜像加速? (推荐选 Y) [Y/n]: {Colors.ENDC}").lower()
     
     use_mirror = choice != 'n'
-    
+    index_strategy = os.environ.get("UV_INDEX_STRATEGY", "unsafe-best-match")
+
     if use_mirror:
+        mirror_index = os.environ.get("UV_DEFAULT_INDEX", "https://pypi.tuna.tsinghua.edu.cn/simple")
+        cmd = ["uv", "sync", "--default-index", mirror_index, "--index-strategy", index_strategy]
         log("正在使用清华镜像源安装依赖...", "info")
-        # 设置 uv 使用清华 PyPI 镜像
-        env = os.environ.copy()
-        env["UV_INDEX_URL"] = "https://pypi.tuna.tsinghua.edu.cn/simple"
-        # 对于 PyTorch CUDA 版本，使用阿里云镜像
-        env["UV_EXTRA_INDEX_URL"] = "https://mirrors.aliyun.com/pytorch-wheels/cu124"
+        log(f"默认索引: {mirror_index}", "info")
     else:
+        cmd = ["uv", "sync", "--index-strategy", index_strategy]
         log("正在使用默认源安装依赖 (可能较慢)...", "info")
-        env = None
+    
+    log(f"索引策略: {index_strategy}", "info")
     
     log("正在运行 'uv sync' (首次运行可能需要较长时间，请耐心等待)...", "info")
     
     try:
-        subprocess.check_call("uv sync", shell=True, env=env)
+        subprocess.check_call(cmd)
         log("依赖安装成功！", "success")
     except subprocess.CalledProcessError:
-        log("安装失败。请检查网络连接。", "error")
+        log("安装失败。请检查网络连接或索引配置。", "error")
         if use_mirror:
             log("尝试使用默认源重试...", "warning")
             try:
-                subprocess.check_call("uv sync", shell=True)
+                fallback_cmd = ["uv", "sync", "--index-strategy", index_strategy]
+                subprocess.check_call(fallback_cmd)
                 log("依赖安装成功！", "success")
             except subprocess.CalledProcessError:
                 log("重试失败。", "error")

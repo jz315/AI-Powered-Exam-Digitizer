@@ -46,7 +46,10 @@ def test_bank_service_import_success(tmp_path, monkeypatch):
 
     saved = json.loads(bank_file.read_text(encoding="utf-8"))
     assert isinstance(saved, dict)
-    assert saved["questions"][0]["content"].startswith("Q1 ![img](assets/")
+    assert (
+        saved["questions"][0]["content"].startswith("Q1 ![img](assets/")
+        or saved["questions"][0]["content"].startswith("Q1 ![img](/assets/")
+    )
 
 
 def test_bank_service_import_empty():

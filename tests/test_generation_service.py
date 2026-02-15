@@ -18,7 +18,7 @@ class FakeGenerator:
         Path(output_tex).write_text("tex", encoding="utf-8")
         return True
 
-    def compile_pdf(self, tex_file: str):
+    def compile_pdf(self, tex_file: str, cancel_check=None):
         pdf_path = Path(tex_file).with_suffix(".pdf")
         pdf_path.write_bytes(b"%PDF-1.4 fake")
         return True

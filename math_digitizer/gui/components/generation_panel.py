@@ -46,7 +46,7 @@ class GenerationMixin:
                 on_status=self.flash_status,
                 cancel_check=self._is_task_cancelled,
             )
-            self.after(0, lambda: self._set_issues_panel(result.issues))
+            self.after(0, lambda: self._set_issues_panel(result.issues, source=json_str))
 
             if result.missing_images:
                 uniq: list[str] = []

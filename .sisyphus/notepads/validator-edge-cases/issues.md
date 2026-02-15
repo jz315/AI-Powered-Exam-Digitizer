@@ -1,0 +1,1 @@
+- `lsp_diagnostics` continues to report a stale F401 unused `pytest` import at line 2 in `tests/test_validator_scanner.py` even after removing the import; may need LSP cache refresh.

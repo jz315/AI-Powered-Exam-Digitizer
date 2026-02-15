@@ -1,0 +1,2 @@
+- Added scanner-focused tests for backslash run resets, escaped comments, and interleaved math delimiters to exercise `_scan_latex_structure` and `_strip_math_segments`.
+- Regex edge cases verified `\verb`/`verbatim` stripping behavior when blocks are missing or repeated.

@@ -101,7 +101,7 @@ class PremiumExamApp(ctk.CTk, UiMixin, PdfOcrMixin, EditorMixin, LogMixin, Gener
             def apply_result():
                 if self._validation_stop_event.is_set(): return
                 if seq != self._validation_seq: return
-                self._set_issues_panel(issues)
+                self._set_issues_panel(issues, source=json_str)
                 if data and isinstance(data, dict):
                     try:
                         new_t = data.get("meta", {}).get("title")
